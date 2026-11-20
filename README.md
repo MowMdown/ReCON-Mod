@@ -110,7 +110,7 @@ Each sync is one `POST <url>api/mod/sync` with JSON:
 
 ```json
 {
-  "v": 1, "mod": "0.0.1c", "key": "<RCON password>", "world": "chernarusplus",
+  "v": 1, "mod": "0.0.1d", "key": "<RCON password>", "world": "chernarusplus",
   "year": 2026, "month": 11, "day": 20, "hour": 14, "minute": 5,
   "players": [{ "steamId": "7656…", "name": "…", "x": 0, "y": 0, "z": 0, "heading": 0,
                 "alive": true, "health": 100, "blood": 5000, "shock": 100,

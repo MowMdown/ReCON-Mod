@@ -6,7 +6,8 @@
 //   password     the server's RCON password, which ReCON also has: it is
 //                what proves to ReCON that the data comes from this server.
 //                Left empty, the mod reads it from BattlEye's config
-//                (BEServer_x64*.cfg's RConPassword).
+//                (the RConPassword in BEServer_x64_active_*.cfg, the copy
+//                BattlEye runs from).
 //   battlEyePath where BattlEye's config is, if it isn't found on its own
 //                (the server's -BEpath).
 //   intervalMs   how often the mod sends player data and picks up commands
@@ -79,13 +80,14 @@ class ReCON_Config
 		return "";
 	}
 
-	// PasswordIn reads RConPassword from the BEServer_x64*.cfg files in dir
-	// (BattlEye runs from a BEServer_x64_active_*.cfg copy).
+	// PasswordIn reads RConPassword from the BEServer_x64_active_*.cfg files
+	// in dir: the copy BattlEye runs from, so the password it actually uses
+	// (BEServer_x64.cfg itself can differ from it, and isn't read).
 	protected static string PasswordIn(string dir)
 	{
 		string name;
 		FileAttr attr;
-		FindFileHandle h = FindFile(dir + "/BEServer_x64*.cfg", name, attr, FindFileFlags.DIRECTORIES);
+		FindFileHandle h = FindFile(dir + "/BEServer_x64_active_*.cfg", name, attr, FindFileFlags.DIRECTORIES);
 		string pw = "";
 		if (name != "")
 		{

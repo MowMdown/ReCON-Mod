@@ -2,6 +2,7 @@ package panel
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -50,7 +51,7 @@ func TestModSyncOverHTTP(t *testing.T) {
 			t.Errorf("command has no %q: %v", k, cmds[0])
 		}
 	}
-	for _, k := range []string{"ok", "error", "interval", "commands"} {
+	for _, k := range []string{"ok", "error", "interval", "commands", "watch"} {
 		if _, ok := out[k]; !ok {
 			t.Errorf("reply has no %q", k)
 		}
@@ -62,6 +63,24 @@ func TestModSyncOverHTTP(t *testing.T) {
 	json.Unmarshal(rec.Body.Bytes(), &one)
 	if one["live"] != true || one["kills"] != float64(0) {
 		t.Errorf("player: %v", one)
+	}
+	// Opening them asks the mod for their inventory; what it sends comes back.
+	if _, out := post("/api/mod/sync", strings.Replace(sync, "%s", "secret", 1)); fmt.Sprint(out["watch"]) != "[76561198000000001]" {
+		t.Fatalf("watch: %v", out["watch"])
+	}
+	withInv := strings.Replace(sync, `"unconscious":false`, `"unconscious":false,"inv":1,"inventory":[{"id":3,"type":"AKM","name":"AKM","slot":"Shoulder","row":-1,"col":-1,
+		"attachments":[{"id":4,"type":"Mag_AKM_30Rnd","slot":"magazine","row":-1,"col":-1,"quantity":17,"quantityMax":30,"unit":"rounds","attachments":[],"cargo":[]}],"cargo":[]}]`, 1)
+	if code, out := post("/api/mod/sync", strings.Replace(withInv, "%s", "secret", 1)); code != 200 {
+		t.Fatalf("sync with inventory: %d %v", code, out)
+	}
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/mod/players/"+guid, nil))
+	var withItems struct {
+		Inventory Inventory `json:"inventory"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &withItems)
+	if it := withItems.Inventory.Items; len(it) != 1 || it[0].Slot != "Shoulder" || it[0].Attachments[0].Quantity != 17 {
+		t.Errorf("inventory: %s", rec.Body.String())
 	}
 	if !quiet(httptest.NewRequest(http.MethodPost, "/api/mod/sync", nil)) {
 		t.Error("the mod's syncs would fill the log")

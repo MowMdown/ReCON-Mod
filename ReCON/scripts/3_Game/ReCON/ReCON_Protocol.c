@@ -9,7 +9,7 @@ const int RECON_PROTOCOL = 1;
 class ReCON_Sync
 {
 	int v = RECON_PROTOCOL;
-	string mod = "0.1.0";
+	string mod = "0.0.1c";
 	string key;      // the RCON password
 	string world;    // "chernarusplus"
 	int year;        // the in-game date and time
@@ -21,6 +21,19 @@ class ReCON_Sync
 	ref array<ref ReCON_PlayerState> players = new array<ref ReCON_PlayerState>();
 	ref array<ref ReCON_Event> events = new array<ref ReCON_Event>();
 	ref array<ref ReCON_Result> results = new array<ref ReCON_Result>();
+	// The items the server can spawn, sent a page at a time while ReCON asks
+	// (the reply's catalogNext): catalog holds entries catalogAt onwards of
+	// catalogTotal.
+	int catalogTotal;
+	int catalogAt;
+	ref array<ref ReCON_CatalogItem> catalog = new array<ref ReCON_CatalogItem>();
+};
+
+class ReCON_CatalogItem
+{
+	string type;  // class name
+	string name;  // display name
+	string kind;  // weapon | magazine | ammo | clothing | item
 };
 
 class ReCON_PlayerState
@@ -57,9 +70,35 @@ class ReCON_PlayerState
 	string vehicleName;
 	int kills;       // this session, as the mod saw them
 	int deaths;
+	// Everything they carry, only while ReCON is watching them (the reply's
+	// watch list); inv says whether inventory was read (it may be empty).
+	bool inv;
+	ref array<ref ReCON_Item> inventory = new array<ref ReCON_Item>();
 };
 
 // The weather now, and where each part is heading (the forecast).
+// ReCON_Item is one item a player carries, with what is attached to it and
+// what is in its cargo.
+class ReCON_Item
+{
+	int id;              // the entity's ID this session (stays put between syncs)
+	string type;         // class name
+	string name;         // display name
+	string slot;         // the slot it is attached in ("Back", "magazine"; "Hands"), "" in cargo
+	int row;             // in cargo: where (-1 when attached)
+	int col;
+	float quantity;      // stack, rounds, ml...; quantityMax 0 when it has none
+	float quantityMax;
+	string unit;         // "rounds", "ml" or ""
+	float health;
+	float healthMax;
+	int healthLevel;     // 0 pristine, 1 worn, 2 damaged, 3 badly damaged, 4 ruined
+	float wet;           // 0-1
+	float temperature;   // degrees C
+	ref array<ref ReCON_Item> attachments = new array<ref ReCON_Item>();
+	ref array<ref ReCON_Item> cargo = new array<ref ReCON_Item>();
+};
+
 class ReCON_World
 {
 	float overcast;      // 0-1
@@ -76,6 +115,8 @@ class ReCON_World
 	float windDirTarget;
 	string mode;         // world: the map's weather; forecast: only what was set; static: frozen
 	bool timeFrozen;
+	float sunrise;       // today's sunrise and sunset on this map, in hours (5.5 = 05:30)
+	float sunset;
 };
 
 class ReCON_Event
@@ -120,6 +161,8 @@ class ReCON_Command
 	// transition is how long it takes to stop.
 	float min;
 	float max;
+	// spawn: text is the class name, value how many (on the ground in
+	// front of the player).
 	// date: the in-game date and time.
 	int year;
 	int month;
@@ -140,5 +183,7 @@ class ReCON_Reply
 	bool ok;
 	string error;
 	int interval;    // ms; 0 keeps the configured one
+	ref array<string> watch = new array<string>(); // SteamID64s to send the inventory of
+	int catalogNext; // 1 + the first catalog entry ReCON wants next; 0 none
 	ref array<ref ReCON_Command> commands = new array<ref ReCON_Command>();
 };

@@ -32,6 +32,15 @@ class ReCON_Module : CF_ModuleWorld
 	protected ref map<string, int> m_Kills = new map<string, int>();
 	protected ref map<string, int> m_Deaths = new map<string, int>();
 
+	// The players ReCON is watching (SteamID64s, from the last reply): their
+	// inventory goes in the syncs.
+	protected ref set<string> m_Watch = new set<string>();
+
+	// Every item the server can spawn (read once), and 1 + the entry ReCON
+	// wants next (0: it has them all).
+	protected ref array<ref ReCON_CatalogItem> m_Catalog = new array<ref ReCON_CatalogItem>();
+	protected int m_CatalogNext;
+
 	static const int MAX_QUEUED = 200;
 
 	static ReCON_Module Get()
@@ -59,7 +68,7 @@ class ReCON_Module : CF_ModuleWorld
 		m_Password = m_Config.RconPassword();
 		if (m_Password == "")
 		{
-			ReCON_Log.Info("no RCON password: put it in " + ReCON_Config.FILE + " (\"password\"), or set \"battlEyePath\" to the folder with BEServer_x64.cfg. ReCON won't get any data until then.");
+			ReCON_Log.Info("no RCON password: put it in " + ReCON_Config.FILE + " (\"password\"), or set \"battlEyePath\" to the folder with BattlEye's BEServer_x64_active_*.cfg. ReCON won't get any data until then.");
 			return;
 		}
 		RestApi api = GetRestApi();
@@ -76,6 +85,8 @@ class ReCON_Module : CF_ModuleWorld
 		m_Rest.SetHeader("application/json");
 		m_Callback = new ReCON_Callback(this);
 		m_Json = new JsonSerializer();
+		ReCON_Catalog.Read(m_Catalog);
+		ReCON_Log.Info(m_Catalog.Count().ToString() + " items can be spawned");
 		m_Enabled = true;
 		ReCON_Log.Info("sending player data to " + m_Config.url + " every " + m_IntervalMs + " ms");
 	}
@@ -133,7 +144,13 @@ class ReCON_Module : CF_ModuleWorld
 			PlayerBase p = PlayerBase.Cast(man);
 			if (!p || !p.GetIdentity())
 				continue;
-			sync.players.Insert(ReCON_Players.State(p, m_Kills, m_Deaths));
+			ReCON_PlayerState st = ReCON_Players.State(p, m_Kills, m_Deaths);
+			if (m_Watch.Find(st.steamId) >= 0)
+			{
+				ReCON_Inventory.Read(p, st.inventory);
+				st.inv = true;
+			}
+			sync.players.Insert(st);
 		}
 
 		// Events and results not yet answered go again, ahead of the new ones.
@@ -149,6 +166,14 @@ class ReCON_Module : CF_ModuleWorld
 			m_SentResults.Remove(0);
 		sync.events = m_SentEvents;
 		sync.results = m_SentResults;
+
+		sync.catalogTotal = m_Catalog.Count();
+		if (m_CatalogNext > 0)
+		{
+			sync.catalogAt = m_CatalogNext - 1;
+			for (int i = sync.catalogAt; i < m_Catalog.Count() && i < sync.catalogAt + ReCON_Catalog.PAGE; i++)
+				sync.catalog.Insert(m_Catalog[i]);
+		}
 
 		string body;
 		if (!m_Json.WriteToString(sync, false, body))
@@ -189,6 +214,13 @@ class ReCON_Module : CF_ModuleWorld
 		m_SentResults.Clear();
 		if (reply.interval >= 250)
 			m_IntervalMs = reply.interval;
+		m_CatalogNext = reply.catalogNext;
+		m_Watch.Clear();
+		if (reply.watch)
+		{
+			foreach (string w : reply.watch)
+				m_Watch.Insert(w);
+		}
 		if (reply.commands)
 		{
 			foreach (ReCON_Command c : reply.commands)

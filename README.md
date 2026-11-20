@@ -22,8 +22,12 @@ and ReCON's side of it (the Live Map page and the API the mod talks to).
 The mod, on the DayZ server, sends ReCON every second every online player's live state: position,
 health, blood, shock, food, water, heat, wetness, bleeding, illnesses,
 whether they are knocked out or restrained, the item in hand, the vehicle
-they're in, and their kills and deaths this session. It also runs ReCON's
-actions on them (heal, kill, teleport, set a stat, on-screen messages) and
+they're in, and their kills and deaths this session. While a player is open
+on the Live Map, it also sends everything they carry: each slot's item, and
+inside it every attachment and every item in its cargo, with its condition,
+quantity, wetness and temperature. It also runs ReCON's
+actions on them (heal, kill, teleport, set a stat, on-screen messages, spawn
+any item the server has loaded on the ground in front of them) and
 on the world (weather, the in-game date and time).
 
 - **Server-side only.** It loads with `-servermod`, so players download
@@ -92,7 +96,7 @@ work:
 | Setting | What it is |
 |---|---|
 | `url` | ReCON's web address and port (the container's published port). |
-| `password` | The RCON password. Leave it empty to read `RConPassword` from BattlEye's `BEServer_x64*.cfg` (found from `-BEpath`, the profile's `BattlEye` folder, or `battleye` in the server folder). |
+| `password` | The RCON password. Leave it empty to read `RConPassword` from the `BEServer_x64_active_*.cfg` BattlEye runs from (not `BEServer_x64.cfg`; found from `-BEpath`, the profile's `BattlEye` folder, or `battleye` in the server folder). |
 | `battlEyePath` | The folder BattlEye's config is in, if the mod doesn't find it. |
 | `intervalMs` | How often to send player data and pick up commands, in milliseconds. The minimum is 250. |
 
@@ -106,7 +110,7 @@ Each sync is one `POST <url>api/mod/sync` with JSON:
 
 ```json
 {
-  "v": 1, "mod": "0.1.0", "key": "<RCON password>", "world": "chernarusplus",
+  "v": 1, "mod": "0.0.1c", "key": "<RCON password>", "world": "chernarusplus",
   "year": 2026, "month": 11, "day": 20, "hour": 14, "minute": 5,
   "players": [{ "steamId": "7656…", "name": "…", "x": 0, "y": 0, "z": 0, "heading": 0,
                 "alive": true, "health": 100, "blood": 5000, "shock": 100,

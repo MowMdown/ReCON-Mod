@@ -5,9 +5,17 @@
 // is given a forecast to reach over some seconds and keep for at least
 // some seconds, and the weather as a whole follows the map's rules
 // ("world"), only what was set ("forecast"), or stays as it is ("static").
+//
+// How DayZ decides (3_Game/Weather.c, WeatherPhenomenon.OnBeforeChange):
+// when a part's hold runs out the engine computes a new forecast and asks
+// the script; under MissionWeather(true) the script says "not handled" and
+// the engine's random forecast goes ahead, so mission weather does NOT keep
+// what was set. Only SetWeatherUpdateFreeze(true) (with mission weather off)
+// makes it say "handled" and keep the forecast; Set() still works then.
 class ReCON_WorldControl
 {
 	protected static bool s_TimeFrozen;
+	protected static string s_Mode = "world";
 
 	static void Read(ReCON_World w)
 	{
@@ -26,12 +34,22 @@ class ReCON_WorldControl
 		w.snowTarget = weather.GetSnowfall().GetForecast();
 		w.windSpeedTarget = weather.GetWindMagnitude().GetForecast();
 		w.windDirTarget = ToDegrees(weather.GetWindDirection().GetForecast());
-		w.mode = "world";
-		if (weather.GetWeatherUpdateFrozen())
-			w.mode = "static";
-		else if (weather.GetMissionWeather())
-			w.mode = "forecast";
+		w.mode = s_Mode;
+		if (s_Mode == "world" && weather.GetWeatherUpdateFrozen())
+			w.mode = "static"; // frozen by something else
 		w.timeFrozen = s_TimeFrozen;
+
+		// Today's sunrise and sunset, from the map's own WorldData (as the
+		// game works out dawn and dusk: by month, here with the day as a fraction).
+		Mission mission = g_Game.GetMission();
+		if (mission && mission.GetWorldData())
+		{
+			int year, month, day, hour, minute;
+			g_Game.GetWorld().GetDate(year, month, day, hour, minute);
+			float monthday = month + (day - 1) / 31.0;
+			w.sunrise = mission.GetWorldData().GetApproxSunriseTime(monthday);
+			w.sunset = mission.GetWorldData().GetApproxSunsetTime(monthday);
+		}
 	}
 
 	static bool IsWorldAction(string action)
@@ -105,8 +123,10 @@ class ReCON_WorldControl
 		return "unknown weather " + part;
 	}
 
-	// SetMode: world follows the map's weather rules; forecast keeps only
-	// what was set; static freezes the weather as it is.
+	// SetMode: world follows the map's weather rules (what was set holds for
+	// its hold, then the map takes over); forecast keeps what was set until
+	// it is set again; static also stops what is changing now, where it is.
+	// Both of the last two block the engine's own changes (see the top).
 	protected static string SetMode(Weather weather, string mode)
 	{
 		switch (mode)
@@ -114,17 +134,33 @@ class ReCON_WorldControl
 			case "world":
 				weather.MissionWeather(false);
 				weather.SetWeatherUpdateFreeze(false);
-				return "";
+				break;
 			case "forecast":
-				weather.MissionWeather(true);
-				weather.SetWeatherUpdateFreeze(false);
-				return "";
-			case "static":
-				weather.MissionWeather(false); // the freeze only works without mission weather
+				weather.MissionWeather(false); // mission weather would let the engine change it
 				weather.SetWeatherUpdateFreeze(true);
-				return "";
+				break;
+			case "static":
+				weather.MissionWeather(false);
+				weather.SetWeatherUpdateFreeze(true);
+				Pin(weather.GetOvercast());
+				Pin(weather.GetRain());
+				Pin(weather.GetFog());
+				Pin(weather.GetSnowfall());
+				Pin(weather.GetWindMagnitude());
+				Pin(weather.GetWindDirection());
+				break;
+			default:
+				return "unknown weather mode " + mode;
 		}
-		return "unknown weather mode " + mode;
+		s_Mode = mode;
+		return "";
+	}
+
+	// Pin stops a part where it is now.
+	protected static void Pin(WeatherPhenomenon p)
+	{
+		if (p)
+			p.Set(p.GetActual(), 0, 0);
 	}
 
 	// The wind's angle is radians in -PI..PI; the pages use 0-360 degrees.

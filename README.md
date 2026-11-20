@@ -3,6 +3,15 @@
 The DayZ server-side companion mod for [ReCON](https://github.com/MowMdown/ReCON),
 and ReCON's side of it (the Live Map page and the API the mod talks to).
 
+> **Not for monetized servers.** ReCON-Mod must not be used on, or to run,
+> support or promote, any DayZ server that makes money: paid access, paid
+> priority queue or whitelist, selling in-game items, perks, kits, bases
+> or vehicles, donation rewards, or any other paid benefit. Use it only on
+> servers that are free to play and earn nothing. (This is the author's
+> condition of use, stated alongside the MIT licence; it also follows the
+> non-commercial terms of the DayZ Public License that DayZ's scripts are
+> under.)
+
 | Path | Contents |
 |---|---|
 | `ReCON/` | The DayZ mod (Enforce script, built on CF), packed into `@ReCON/addons/ReCON.pbo` |
@@ -184,8 +193,9 @@ World actions, modelled on Community Online Tools' weather module (`mod.weather`
 
 ## Credits and licences
 
-ReCON-Mod's own code is under the [MIT License](LICENSE). [NOTICE](NOTICE)
-lists what it builds on or learned from, and their licences:
+ReCON-Mod's own code is under the [MIT License](LICENSE), with the
+condition above: **not for monetized servers**. [NOTICE](NOTICE) lists what
+it builds on or learned from, and their licences:
 
 - **DayZ** (Bohemia Interactive). The mod uses DayZ's script API, and the
   Live Map uses the thresholds and colours from DayZ's scripts for the HUD

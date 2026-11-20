@@ -53,6 +53,9 @@ class ReCON_Actions
 			case "message":
 				err = Message(p, c.title, c.text, c.seconds);
 				break;
+			case "spawn":
+				err = Spawn(p, c.text, c.value);
+				break;
 			default:
 				err = "unknown action " + c.action;
 				break;
@@ -99,6 +102,41 @@ class ReCON_Actions
 			DayZPlayerSyncJunctures.SendPlayerUnconsciousness(p, false);
 		if (!allowDamage)
 			p.SetAllowDamage(false);
+	}
+
+	// Spawn puts count of type on the ground a metre or so in front of
+	// them, a little apart, with full stacks and magazines.
+	static string Spawn(PlayerBase p, string type, float count)
+	{
+		if (!ReCON_Catalog.Spawnable(type))
+			return type + " isn't an item this server can spawn";
+		int n = (int)count;
+		if (n < 1)
+			n = 1;
+		if (n > 20)
+			n = 20;
+		vector pos = p.GetPosition();
+		vector dir = p.GetDirection();
+		dir[1] = 0;
+		dir.Normalize();
+		vector side = Vector(dir[2], 0, -dir[0]);
+		for (int i = 0; i < n; i++)
+		{
+			// A row across in front of them, 0.4 m apart.
+			float off = (i - (n - 1) / 2.0) * 0.4;
+			vector at = pos + dir * 1.2 + side * off;
+			at[1] = g_Game.SurfaceY(at[0], at[2]);
+			EntityAI e = EntityAI.Cast(g_Game.CreateObjectEx(type, at, ECE_PLACE_ON_SURFACE));
+			if (!e)
+				return "the game couldn't create " + type;
+			Magazine mag = Magazine.Cast(e);
+			ItemBase ib = ItemBase.Cast(e);
+			if (mag)
+				mag.ServerSetAmmoMax();
+			else if (ib && ib.HasQuantity())
+				ib.SetQuantityMax();
+		}
+		return "";
 	}
 
 	// Teleport moves them (and their vehicle) to x, z; y 0 or below means

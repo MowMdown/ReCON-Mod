@@ -32,6 +32,9 @@ var (
 	// staleAfter is how long after the last sync the mod counts as
 	// disconnected and its data as old.
 	staleAfter = 5 * time.Second
+	// watchFor is how long a player stays watched (their inventory sent)
+	// after a page last asked for them.
+	watchFor = 15 * time.Second
 	// commandTimeout is how long a queued command waits for the mod to
 	// pick it up and answer before it is given up.
 	commandTimeout = 30 * time.Second
@@ -54,6 +57,18 @@ type SyncRequest struct {
 	Players []PlayerState `json:"players"`
 	Events  []Event       `json:"events"`
 	Results []Result      `json:"results"`
+	// The items the server can spawn: Catalog is entries CatalogAt onwards
+	// of CatalogTotal, sent while the reply's CatalogNext asks for them.
+	CatalogTotal int           `json:"catalogTotal"`
+	CatalogAt    int           `json:"catalogAt"`
+	Catalog      []CatalogItem `json:"catalog"`
+}
+
+// CatalogItem is an item the server can spawn (ReCON_CatalogItem).
+type CatalogItem struct {
+	Type string `json:"type"`
+	Name string `json:"name"`
+	Kind string `json:"kind"` // weapon, magazine, ammo, clothing or item
 }
 
 // PlayerState is one player as the mod reads them (ReCON_PlayerState).
@@ -87,6 +102,37 @@ type PlayerState struct {
 	Vehicle         string  `json:"vehicle"`
 	Kills           int     `json:"kills"`
 	Deaths          int     `json:"deaths"`
+	// Inv: Inventory was read (only for watched players). Kept apart from
+	// the live state (see InventoryOf), so the players list stays small.
+	Inv       Flag   `json:"inv"`
+	Inventory []Item `json:"inventory,omitempty"`
+}
+
+// Item is one item a player carries, with its attachments and cargo
+// (ReCON_Item).
+type Item struct {
+	ID          int     `json:"id"`
+	Type        string  `json:"type"`
+	Name        string  `json:"name"`
+	Slot        string  `json:"slot"` // "" in cargo; "Hands" for the item in hand
+	Row         int     `json:"row"`  // in cargo; -1 when attached
+	Col         int     `json:"col"`
+	Quantity    float64 `json:"quantity"`
+	QuantityMax float64 `json:"quantityMax"` // 0: it has no quantity
+	Unit        string  `json:"unit"`        // "rounds", "ml" or ""
+	Health      float64 `json:"health"`
+	HealthMax   float64 `json:"healthMax"`
+	HealthLevel int     `json:"healthLevel"` // 0 pristine .. 4 ruined
+	Wet         float64 `json:"wet"`
+	Temperature float64 `json:"temperature"`
+	Attachments []Item  `json:"attachments"`
+	Cargo       []Item  `json:"cargo"`
+}
+
+// Inventory is what a player carried at the last sync that read it.
+type Inventory struct {
+	Items []Item    `json:"items"`
+	At    time.Time `json:"at"`
 }
 
 // World is the weather now and where each part is heading (ReCON_World).
@@ -105,6 +151,9 @@ type World struct {
 	WindDirTarget   float64 `json:"windDirTarget"`
 	Mode            string  `json:"mode"` // world, forecast or static
 	TimeFrozen      Flag    `json:"timeFrozen"`
+	// Today's sunrise and sunset on the map, in hours (0: not sent).
+	Sunrise float64 `json:"sunrise"`
+	Sunset  float64 `json:"sunset"`
 }
 
 // Event is something that happened between syncs (ReCON_Event).
@@ -162,6 +211,9 @@ type SyncReply struct {
 	Error    string    `json:"error"`
 	Interval int       `json:"interval"`
 	Commands []Command `json:"commands"`
+	Watch    []string  `json:"watch"` // SteamID64s whose inventory to send
+	// CatalogNext is 1 + the first catalog entry wanted next (0: none).
+	CatalogNext int `json:"catalogNext"`
 }
 
 // Player is a player's live state as the pages get it.
@@ -171,10 +223,22 @@ type Player struct {
 	Illnesses []string `json:"illnesses"`
 }
 
+// Position is a spot in the world (y is the height).
+type Position struct {
+	X  float64   `json:"x"`
+	Y  float64   `json:"y"`
+	Z  float64   `json:"z"`
+	At time.Time `json:"at"` // when they were teleported away from it
+}
+
 // CommandStatus is a queued command and what became of it.
 type CommandStatus struct {
 	Command
-	GUID     string    `json:"guid"`
+	GUID string `json:"guid"`
+	// Teleports: where the player was when it was queued (it becomes their
+	// previous spot once the mod has run it), and whether it was "back".
+	From     *Position `json:"from,omitempty"`
+	Back     bool      `json:"back,omitempty"`
 	Status   string    `json:"status"` // queued, sent, done, failed, expired
 	Error    string    `json:"error,omitempty"`
 	Queued   time.Time `json:"queued"`
@@ -189,8 +253,18 @@ var state struct {
 	date     [5]int // year, month, day, hour, minute
 	weather  World
 	players  map[string]Player // by GUID
-	nextID   int
-	commands []*CommandStatus // oldest first: queued and sent ones, then the last keepResults finished
+	// Watched players (by GUID: until when), and their last inventories.
+	watch     map[string]time.Time
+	inventory map[string]Inventory
+	// Where each player was before their last teleport (by GUID), for back.
+	previous map[string]Position
+	// The items the server can spawn, as far as they have come in, and how
+	// many there are; catalogTypes is filled once all are in.
+	catalog      []CatalogItem
+	catalogTotal int
+	catalogTypes map[string]CatalogItem
+	nextID       int
+	commands     []*CommandStatus // oldest first: queued and sent ones, then the last keepResults finished
 	// SteamIDs saved to the players table this run (one write per player).
 	steamSaved map[string]bool
 	refused    string // the last refusal logged, so it isn't logged every second
@@ -225,7 +299,10 @@ func Sync(req SyncRequest, now time.Time) (SyncReply, error) {
 	state.Lock()
 	if state.lastSync.IsZero() || now.Sub(state.lastSync) > staleAfter {
 		log.Printf("recon-mod: the mod (version %s) connected (%s, %d players)", req.Mod, req.World, len(req.Players))
+		// The server may have restarted with other mods: fetch the item list again.
+		state.catalog, state.catalogTotal, state.catalogTypes = nil, 0, nil
 	}
+	takeCatalog(req)
 	state.refused = ""
 	if state.steamSaved == nil {
 		state.steamSaved = map[string]bool{}
@@ -236,6 +313,17 @@ func Sync(req SyncRequest, now time.Time) (SyncReply, error) {
 			continue
 		}
 		guid := battlEyeGUID(id)
+		if p.Inv {
+			if state.inventory == nil {
+				state.inventory = map[string]Inventory{}
+			}
+			items := p.Inventory
+			if items == nil {
+				items = []Item{}
+			}
+			state.inventory[guid] = Inventory{Items: items, At: now}
+		}
+		p.Inv, p.Inventory = false, nil
 		players[guid] = Player{GUID: guid, PlayerState: p, Illnesses: Illnesses(p.Agents)}
 		if !state.steamSaved[guid] {
 			state.steamSaved[guid] = true
@@ -259,10 +347,35 @@ func Sync(req SyncRequest, now time.Time) (SyncReply, error) {
 		c.Status, c.Error, c.Finished = "done", "", now
 		if !r.OK {
 			c.Status, c.Error = "failed", r.Error
+		} else if c.From != nil {
+			if state.previous == nil {
+				state.previous = map[string]Position{}
+			}
+			from := *c.From
+			from.At = now
+			state.previous[c.GUID] = from
 		}
 	}
 	// What to send: everything queued, unless it waited too long.
-	reply := SyncReply{OK: true, Commands: []Command{}}
+	reply := SyncReply{OK: true, Commands: []Command{}, Watch: []string{}}
+	if len(state.catalog) < state.catalogTotal {
+		reply.CatalogNext = len(state.catalog) + 1
+	}
+	for g, until := range state.watch {
+		if now.After(until) {
+			delete(state.watch, g)
+			continue
+		}
+		if p, ok := players[g]; ok {
+			reply.Watch = append(reply.Watch, p.SteamID)
+		}
+	}
+	sort.Strings(reply.Watch)
+	for g := range state.inventory {
+		if _, ok := players[g]; !ok {
+			delete(state.inventory, g) // gone: their next inventory starts fresh
+		}
+	}
 	for _, c := range state.commands {
 		switch {
 		case c.Status == "queued" && now.Sub(c.Queued) > commandTimeout:
@@ -299,6 +412,56 @@ func Sync(req SyncRequest, now time.Time) (SyncReply, error) {
 		}
 	}
 	return reply, nil
+}
+
+// takeCatalog adds the catalog entries a sync carries (state is locked).
+func takeCatalog(req SyncRequest) {
+	if req.CatalogTotal != state.catalogTotal {
+		state.catalog, state.catalogTotal, state.catalogTypes = nil, req.CatalogTotal, nil
+	}
+	if req.CatalogAt != len(state.catalog) || len(req.Catalog) == 0 || state.catalogTypes != nil {
+		return // not the entries asked for next (a resend, or out of step): asked again
+	}
+	for _, it := range req.Catalog {
+		if len(state.catalog) >= state.catalogTotal {
+			break
+		}
+		state.catalog = append(state.catalog, it)
+	}
+	if len(state.catalog) == state.catalogTotal {
+		sort.Slice(state.catalog, func(a, b int) bool {
+			na, nb := strings.ToLower(itemName(state.catalog[a])), strings.ToLower(itemName(state.catalog[b]))
+			if na != nb {
+				return na < nb
+			}
+			return state.catalog[a].Type < state.catalog[b].Type
+		})
+		state.catalogTypes = make(map[string]CatalogItem, len(state.catalog))
+		for _, it := range state.catalog {
+			state.catalogTypes[it.Type] = it
+		}
+		log.Printf("recon-mod: got the list of %d items the server can spawn", len(state.catalog))
+	}
+}
+
+// itemName is an item's display name, or its class name when it has none
+// (or only an untranslated string key).
+func itemName(it CatalogItem) string {
+	if it.Name == "" || strings.HasPrefix(it.Name, "$") {
+		return it.Type
+	}
+	return it.Name
+}
+
+// Catalog is every item the server can spawn, sorted by name, once the mod
+// has sent them all (complete false until then, or while it isn't connected).
+func Catalog(now time.Time) (items []CatalogItem, complete bool) {
+	state.Lock()
+	defer state.Unlock()
+	if !connected(now) || state.catalogTypes == nil {
+		return []CatalogItem{}, false
+	}
+	return state.catalog, true
 }
 
 // logRefusal logs why a sync was refused, once until the reason (key)
@@ -399,6 +562,28 @@ func PlayerOf(guid string, now time.Time) (Player, bool) {
 	return p, ok
 }
 
+// Watch asks the mod for a player's inventory for the next watchFor.
+func Watch(guid string, now time.Time) {
+	state.Lock()
+	defer state.Unlock()
+	if state.watch == nil {
+		state.watch = map[string]time.Time{}
+	}
+	state.watch[strings.ToLower(guid)] = now.Add(watchFor)
+}
+
+// InventoryOf is a player's last inventory from the mod (false: none yet,
+// or the mod isn't connected).
+func InventoryOf(guid string, now time.Time) (Inventory, bool) {
+	state.Lock()
+	defer state.Unlock()
+	if !connected(now) {
+		return Inventory{}, false
+	}
+	inv, ok := state.inventory[strings.ToLower(guid)]
+	return inv, ok
+}
+
 // Commands is the open and recent commands, newest first; for one player
 // when guid isn't "".
 func Commands(guid string) []CommandStatus {
@@ -417,7 +602,9 @@ func Commands(guid string) []CommandStatus {
 // Actions are the commands the mod runs, and the stats "set" can change
 // with their largest values.
 var (
-	Actions  = map[string]bool{"heal": true, "kill": true, "teleport": true, "teleportTo": true, "set": true, "message": true}
+	// back is a teleport to where they were before the last one.
+	// spawn puts Value (1 to maxSpawn) of the item class Text in front of them.
+	Actions  = map[string]bool{"heal": true, "kill": true, "teleport": true, "teleportTo": true, "back": true, "set": true, "message": true, "spawn": true}
 	StatMaxs = map[string]float64{"health": 100, "blood": 5000, "shock": 100, "water": 5000, "energy": 5000, "stamina": 100, "heatBuffer": 30}
 )
 
@@ -441,6 +628,14 @@ func Queue(guid string, c Command, now time.Time) (CommandStatus, error) {
 		if c.X <= 0 || c.Z <= 0 {
 			return CommandStatus{}, errors.New("pick where to teleport them")
 		}
+	case "spawn":
+		c.Text = strings.TrimSpace(c.Text)
+		if c.Text == "" {
+			return CommandStatus{}, errors.New("pick an item to spawn")
+		}
+		if c.Value != float64(int(c.Value)) || c.Value < 1 || c.Value > maxSpawn {
+			return CommandStatus{}, errors.New("spawn 1 to " + strconv.Itoa(maxSpawn) + " at a time")
+		}
 	case "message":
 		c.Text = strings.TrimSpace(c.Text)
 		if c.Text == "" {
@@ -461,15 +656,51 @@ func Queue(guid string, c Command, now time.Time) (CommandStatus, error) {
 		return CommandStatus{}, errors.New("the player isn't online")
 	}
 	c.SteamID = p.SteamID
-	if c.Action == "teleportTo" {
+	back := false
+	switch c.Action {
+	case "teleportTo":
 		t, ok := state.players[strings.ToLower(c.Target)]
 		if !ok {
 			return CommandStatus{}, errors.New("the player to go to isn't online")
 		}
 		c.Target = t.SteamID
+	case "spawn":
+		if state.catalogTypes == nil {
+			return CommandStatus{}, errors.New("the item list hasn't come in from the mod yet")
+		}
+		if _, ok := state.catalogTypes[c.Text]; !ok {
+			return CommandStatus{}, errors.New(c.Text + " isn't an item the server can spawn")
+		}
+	case "back":
+		prev, ok := state.previous[guid]
+		if !ok {
+			return CommandStatus{}, errors.New("they haven't been teleported yet, so there is no previous spot")
+		}
+		// The mod runs it as a plain teleport, to the exact spot (height too).
+		c.Action, c.X, c.Y, c.Z, c.Target = "teleport", prev.X, prev.Y, prev.Z, ""
+		back = true
 	}
-	return add(c, guid, now), nil
+	cs := add(c, guid, now)
+	if c.Action == "teleport" || c.Action == "teleportTo" {
+		// add keeps a pointer; set From and Back on the stored one.
+		stored := state.commands[len(state.commands)-1]
+		stored.From = &Position{X: p.X, Y: p.Y, Z: p.Z}
+		stored.Back = back
+		cs = *stored
+	}
+	return cs, nil
 }
+
+// Previous is where a player was before their last teleport.
+func Previous(guid string) (Position, bool) {
+	state.Lock()
+	defer state.Unlock()
+	p, ok := state.previous[strings.ToLower(guid)]
+	return p, ok
+}
+
+// maxSpawn is the most of one item a spawn makes.
+const maxSpawn = 20
 
 // connected reports whether the mod synced lately (state is locked).
 func connected(now time.Time) bool {
@@ -562,6 +793,8 @@ func reset() {
 	defer state.Unlock()
 	state.lastSync, state.mod, state.world, state.players = time.Time{}, "", "", nil
 	state.nextID, state.commands, state.steamSaved, state.refused = 0, nil, nil, ""
+	state.watch, state.inventory, state.previous = nil, nil, nil
+	state.catalog, state.catalogTotal, state.catalogTypes = nil, 0, nil
 }
 
 // battlEyeGUID is the BattlEye GUID of a SteamID64: md5("BE" + the ID as 8

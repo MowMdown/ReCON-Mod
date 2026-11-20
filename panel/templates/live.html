@@ -96,6 +96,17 @@ button.on { color: #8ab4f8; border-color: #8ab4f8; }
 .form .grow { flex: 1; min-width: 160px; }
 .muted { color: #888; font-size: 12.5px; }
 .form button { margin: 0; }
+.form.stats { display: block; }
+.form.stats .wrow input[type=range] { width: 100%; }
+.setfoot { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.splist { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; margin: 10px 0 8px; }
+.sprow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; background: #141414; border: 1px solid #333; border-radius: 5px; padding: 5px 9px; cursor: pointer; text-align: left; color: inherit; font: inherit; font-size: 13px; margin: 0; width: 100%; }
+.sprow:hover { border-color: #555; }
+.sprow.sel { border-color: #8ab4f8; background: #1b2433; }
+.sprow .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sprow .nm small { color: #888; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; margin-left: 6px; }
+.sprow .kd { color: #888; font-size: 11.5px; }
+.lastact { font-size: 13px; color: #aaa; margin-top: 10px; min-height: 1.2em; }
 h4 { margin: 18px 0 6px; font-size: 13px; color: #ccc; font-weight: 600; }
 table.dt { table-layout: auto; }
 table.dt td { height: auto; padding: 5px 8px; font-size: 13px; border-bottom: none; border-top: 1px solid #333; }
@@ -105,6 +116,28 @@ table.dt a { color: #8ab4f8; text-decoration: none; cursor: pointer; }
 .dfoot { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; gap: 10px; }
 .dfoot button { margin: 0; }
 .dlg-err { color: #f28b82; font-size: 13px; min-height: 1.2em; margin-top: 8px; }
+/* Inventory: the slots on the left, the item picked on the right */
+.inv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px; align-items: start; }
+@media (max-width: 700px) { .inv { grid-template-columns: minmax(0, 1fr); } }
+.ilist { display: flex; flex-direction: column; gap: 4px; }
+.irow { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 10px; align-items: center; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 6px 10px; cursor: pointer; text-align: left; color: inherit; font: inherit; font-size: 13px; margin: 0; width: 100%; }
+.irow:hover { border-color: #555; }
+.irow.sel { border-color: #8ab4f8; background: #1b2433; }
+.irow .sl { color: #999; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irow .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irow .ex { color: #888; font-size: 12px; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.cond { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.idet { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 12px 14px; font-size: 13px; min-height: 120px; }
+.idet .crumbs { color: #888; font-size: 12px; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+.idet .crumbs a { color: #8ab4f8; cursor: pointer; }
+.idet h3 { margin: 0; font-size: 16px; }
+.idet .ty { color: #888; font-size: 12px; font-family: ui-monospace, Consolas, monospace; margin: 2px 0 10px; overflow-wrap: anywhere; }
+.props { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 5px 10px; }
+.props .k { color: #999; }
+.idet h5 { margin: 14px 0 5px; font-size: 12px; color: #ccc; font-weight: 600; }
+.sub-items { display: flex; flex-direction: column; gap: 3px; }
+.sub-items .irow { background: #141414; padding: 5px 9px; }
+html[data-theme]:not([data-theme="default"]) .irow, html[data-theme]:not([data-theme="default"]) .idet { border-color: var(--color-divider); }
 /* World */
 .wsec { border-top: 1px solid #333; padding: 14px 0 4px; margin-top: 4px; }
 .wsec.first { border-top: none; padding-top: 0; }
@@ -173,33 +206,41 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 		</div>
 		<div class="acts">
 			<button type="button" class="go" onclick="act('heal')">Heal</button>
-			<button type="button" id="bTeleport" onclick="showForm('teleport')">Teleport…</button>
-			<button type="button" id="bSet" onclick="showForm('set')">Set stat…</button>
+			<button type="button" id="bSet" onclick="showForm('set')">Set stats…</button>
 			<button type="button" id="bMessage" onclick="showForm('message')">Message…</button>
+			<button type="button" id="bSpawn" onclick="showForm('spawn')">Spawn item…</button>
 			<span class="sp"></span>
 			<button type="button" class="bad" onclick="killPlayer()">Kill</button>
 		</div>
-		<div class="form" id="fTeleport" hidden>
+		<div class="form" id="fTeleport">
 			Teleport to <input id="tpX" size="6" inputmode="decimal" aria-label="X (east)"> , <input id="tpZ" size="6" inputmode="decimal" aria-label="Z (north)">
 			<span class="muted">or click the mini-map</span>
 			<span class="muted">·</span> to player <select id="tpTo"></select>
-			<span class="grow"></span><button type="button" class="go" onclick="doTeleport()">Teleport</button><button type="button" onclick="showForm('')">Cancel</button>
+			<span class="grow"></span><button type="button" id="bBack" onclick="act('back')" disabled>Previous</button>
+			<button type="button" class="go" onclick="doTeleport()">Teleport</button>
 		</div>
-		<div class="form" id="fSet" hidden>
-			Set <select id="setStat">
-				<option value="health">Health (0-100)</option><option value="blood">Blood (0-5000)</option><option value="shock">Shock (0-100)</option>
-				<option value="water">Water (0-5000)</option><option value="energy">Food (0-5000)</option><option value="stamina">Stamina (0-100)</option>
-				<option value="heatBuffer">Comfort (0-30)</option>
-			</select> to <input id="setVal" size="6" inputmode="decimal" aria-label="Value">
-			<span class="grow"></span><button type="button" class="go" onclick="doSet()">Set</button><button type="button" onclick="showForm('')">Cancel</button>
+		<div class="form stats" id="fSet" hidden>
+			<div id="setRows"></div>
+			<div class="setfoot"><span class="muted">Only the stats you move are changed.</span><span class="grow"></span>
+				<button type="button" class="go" onclick="doSet()">Save</button><button type="button" onclick="showForm('')">Cancel</button></div>
 		</div>
 		<div class="form" id="fMessage" hidden>
 			<input id="msgText" class="grow" maxlength="500" placeholder="Message, shown on their screen" aria-label="Message">
 			<button type="button" class="go" onclick="doMessage()">Send</button><button type="button" onclick="showForm('')">Cancel</button>
 		</div>
+		<div class="form stats" id="fSpawn" hidden>
+			<div class="inl"><input id="spFind" class="grow" type="search" placeholder="Find an item by name or class" aria-label="Find an item" autocomplete="off">
+				<select id="spKind" aria-label="Kind"><option value="">Everything</option><option value="weapon">Weapons</option><option value="magazine">Magazines</option>
+					<option value="ammo">Ammo</option><option value="clothing">Clothing</option><option value="item">Other items</option></select></div>
+			<div class="splist" id="spList"></div>
+			<div class="setfoot"><span class="muted" id="spPick"></span><span class="grow"></span>
+				<span>Count</span><input id="spCount" type="number" min="1" max="20" value="1" style="width:64px" aria-label="How many">
+				<button type="button" class="go" onclick="doSpawn()">Spawn</button><button type="button" onclick="showForm('')">Cancel</button></div>
+		</div>
 		<div class="dlg-err" id="pErr"></div>
-		<h4>Actions</h4>
-		<table class="dt"><tbody id="pCmds"></tbody></table>
+		<div class="lastact" id="pLast"></div>
+		<h4>Inventory <span class="muted" id="invWhen"></span></h4>
+		<div class="inv"><div class="ilist" id="iList"></div><div class="idet" id="iDet"></div></div>
 		<h4>Kills and deaths</h4>
 		<table class="dt"><tbody id="pKills"></tbody></table>
 		<div class="dfoot"><button type="button" onclick="openInPlayers()">Open in Players</button><button type="button" onclick="closePlayer()">Close</button></div>
@@ -214,15 +255,18 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 			<div class="inl">In-game <input type="date" id="wDate" aria-label="In-game date"> <input type="time" id="wTime" aria-label="In-game time">
 				<button type="button" class="go" onclick="setDate()">Set</button><span style="flex:1"></span>
 				<button type="button" id="freezeBtn" onclick="toggleFreeze()">Freeze time</button></div>
-			<div class="muted" style="margin-top:6px" id="wNow"></div>
+			<div class="presets" id="timePresets">
+				<button type="button" data-t="dawn">Dawn</button><button type="button" data-t="day">Day</button>
+				<button type="button" data-t="dusk">Dusk</button><button type="button" data-t="night">Night</button></div>
+			<div class="muted" id="wNow"></div>
 		</div>
 		<div class="wsec"><h3>Weather</h3>
 			<div class="inl">Weather follows <div class="seg" id="wMode">
 				<button type="button" data-mode="world">the map's rules</button><button type="button" data-mode="forecast">only what's set here</button><button type="button" data-mode="static">nothing (frozen)</button></div></div>
 			<div class="presets" id="presets"></div>
 			<div id="wRows"></div>
-			<div class="inl" style="margin-top:12px">Change over <input id="wTrans" size="4" value="60" inputmode="numeric" aria-label="Seconds"> seconds, then hold for at least
-				<input id="wHold" size="4" value="30" inputmode="numeric" aria-label="Minutes"> minutes
+			<div class="inl" style="margin-top:12px">Change over <input id="wTrans" size="4" value="0" inputmode="numeric" aria-label="Seconds"> seconds, then hold for at least
+				<input id="wHold" size="4" value="0" inputmode="numeric" aria-label="Minutes"> minutes
 				<span style="flex:1"></span><button type="button" class="go" onclick="applyWeather()">Apply</button></div>
 			<div class="muted" style="margin-top:8px">Only the sliders you moved are sent. Rain only falls while overcast is in the map's rain range (60% to 100% by default):
 				<a href="#" onclick="toggleRainRange(event)" style="color:#8ab4f8">change it</a>.</div>
@@ -239,7 +283,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 // ---- Data ---------------------------------------------------------------
 
 let mod = null, players = [], commands = [], byGuid = {};
-let selGuid = null, detail = null; // the player in the dialog, and their kills (every 5 s)
+let selGuid = null, detail = null; // the player in the dialog, and their kills and inventory (every 2 s)
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 function pad(n, w) { return String(Math.max(0, Math.floor(n))).padStart(w || 2, '0'); }
@@ -464,7 +508,10 @@ document.getElementById('find').addEventListener('input', renderList);
 
 function openPlayer(guid) {
 	selGuid = guid;
+	clearTeleport();
 	detail = null;
+	invSel = null;
+	invAsked = Date.now();
 	showForm('');
 	document.getElementById('pErr').textContent = '';
 	document.getElementById('pModal').style.display = 'flex';
@@ -493,7 +540,8 @@ async function loadDetail() {
 		if (g === selGuid) { detail = d; renderPlayer(); }
 	} catch (e) { }
 }
-setInterval(() => { if (selGuid) loadDetail(); }, 5000);
+// Every 2 s while open: that also keeps ReCON asking the mod for their inventory.
+setInterval(() => { if (selGuid) loadDetail(); }, 2000);
 
 function bar(label, v, max, colour, blink, text) {
 	return '<div class="bar' + (blink ? ' blink' : '') + '"><span class="k">' + label + '</span><div class="track"><div class="fill" style="width:' +
@@ -549,19 +597,122 @@ function renderPlayer() {
 	const sel = document.getElementById('tpTo'), keep = sel.value;
 	const opts = '<option value="">—</option>' + players.filter(o => o.guid !== selGuid).map(o => '<option value="' + o.guid + '">' + esc(o.name) + '</option>').join('');
 	if (sel.getAttribute('data-opts') !== opts) { sel.innerHTML = opts; sel.setAttribute('data-opts', opts); sel.value = keep; }
-	renderCmds(commands.filter(c => c.guid === selGuid), document.getElementById('pCmds'));
+	renderLast();
+	syncSet(p);
+	// Previous: back to where they were before their last teleport.
+	const prev = detail && detail.previous, bb = document.getElementById('bBack');
+	bb.disabled = !p || !prev;
+	bb.textContent = prev ? 'Previous · ' + grid(prev.x, prev.z) : 'Previous';
+	bb.title = prev ? 'Back to where they were before the teleport at ' + new Date(prev.at).toLocaleTimeString() : 'They haven\'t been teleported yet';
 	renderKills();
+	renderInv(p);
 }
+
+// ---- Inventory ----------------------------------------------------------
+
+let invSel = null, invAsked = 0;
+// The player's slots, in the order DayZ's inventory shows them.
+const SLOTS = [['Hands', 'Hands'], ['Headgear', 'Head'], ['Mask', 'Face'], ['Eyewear', 'Eyes'], ['Gloves', 'Gloves'], ['Armband', 'Armband'],
+	['Body', 'Top'], ['Vest', 'Vest'], ['Back', 'Back'], ['Hips', 'Belt'], ['Legs', 'Pants'], ['Feet', 'Shoes'], ['Shoulder', 'Shoulder'], ['Melee', 'Melee']];
+const SLOT_LABEL = Object.fromEntries(SLOTS);
+const SLOT_RANK = Object.fromEntries(SLOTS.map(([k], i) => [k, i]));
+const CONDITION = [['Pristine', '#81c995'], ['Worn', '#b5d07a'], ['Damaged', '#fdd663'], ['Badly damaged', '#f2a65a'], ['Ruined', '#f28b82']];
+function slotLabel(s) {
+	if (!s) return '';
+	return SLOT_LABEL[s] || (s.charAt(0).toUpperCase() + s.slice(1)).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
+}
+function itemName(it) { return it.name || item(it.type); }
+function condOf(it) { return CONDITION[Math.max(0, Math.min(4, it.healthLevel | 0))]; }
+function countIn(it) { return (it.attachments || []).concat(it.cargo || []).reduce((n, c) => n + 1 + countIn(c), 0); }
+function qty(it) {
+	if (!it.quantityMax) return '';
+	return num(it.quantity) + ' / ' + num(it.quantityMax) + (it.unit ? ' ' + it.unit : '');
+}
+// pathTo is the items from the top down to the one with that id, or null.
+function pathTo(items, id) {
+	for (const it of items || []) {
+		if (it.id === id) return [it];
+		const sub = pathTo((it.attachments || []).concat(it.cargo || []), id);
+		if (sub) return [it].concat(sub);
+	}
+	return null;
+}
+function irow(it, label, extra) {
+	const [cn, cc] = condOf(it);
+	return '<button type="button" class="irow' + (it.id === invSel ? ' sel' : '') + '" data-item="' + it.id + '">' +
+		'<span class="sl">' + esc(label) + '</span><span class="nm">' + esc(itemName(it)) + '</span>' +
+		'<span class="ex">' + esc(extra || '') + '<span class="cond" style="background:' + cc + '" title="' + cn + '"></span></span></button>';
+}
+
+function renderInv(p) {
+	const list = document.getElementById('iList'), det = document.getElementById('iDet'), when = document.getElementById('invWhen');
+	const inv = detail && detail.inventory;
+	if (!p) {
+		when.textContent = '';
+		list.innerHTML = '<div class="empty">They aren\'t on the server now.</div>';
+		det.innerHTML = '';
+		return;
+	}
+	if (!inv) {
+		when.textContent = '';
+		list.innerHTML = '<div class="empty">' + (Date.now() - invAsked > 10000
+			? 'recon-mod hasn\'t sent their inventory. The mod on the server may be a version without it.'
+			: 'Asking recon-mod for their inventory…') + '</div>';
+		det.innerHTML = '';
+		return;
+	}
+	when.textContent = '· updated ' + Math.max(0, Math.round((Date.now() - new Date(inv.at)) / 1000)) + ' s ago';
+	const items = (inv.items || []).slice().sort((a, b) => (SLOT_RANK[a.slot] ?? 99) - (SLOT_RANK[b.slot] ?? 99));
+	list.innerHTML = items.length ? items.map(it => {
+		const n = countIn(it);
+		return irow(it, slotLabel(it.slot), n ? n + (n === 1 ? ' item' : ' items') : qty(it));
+	}).join('') : '<div class="empty">They carry nothing.</div>';
+
+	const path = invSel != null ? pathTo(items, invSel) : null;
+	if (!path) {
+		invSel = null;
+		det.innerHTML = '<div class="empty">' + (items.length ? 'Pick an item to see its condition, attachments and contents.' : '') + '</div>';
+		return;
+	}
+	const it = path[path.length - 1];
+	const [cn, cc] = condOf(it);
+	let h = '';
+	if (path.length > 1) h += '<div class="crumbs">' + path.slice(0, -1).map(x => '<a data-item="' + x.id + '">' + esc(itemName(x)) + '</a> ›').join(' ') + '</div>';
+	h += '<h3>' + esc(itemName(it)) + '</h3><div class="ty">' + esc(it.type) + '</div><div class="props">';
+	const where = it.slot ? slotLabel(it.slot) + (path.length > 1 ? ' (attached)' : '') : 'Cargo, row ' + (it.row + 1) + ', column ' + (it.col + 1);
+	const props = [['Slot', where],
+		['Condition', '<span style="color:' + cc + '">' + cn + '</span> · ' + num(it.health) + ' / ' + num(it.healthMax)]];
+	if (it.quantityMax) props.push([it.unit === 'rounds' ? 'Rounds' : 'Quantity', esc(qty(it))]);
+	props.push(['Wetness', it.wet > 0 ? Math.round(100 * it.wet) + '%' : 'Dry']);
+	props.push(['Temperature', (Math.round(it.temperature * 10) / 10) + ' °C']);
+	h += props.map(([k, v]) => '<span class="k">' + k + '</span><span>' + (k === 'Condition' ? v : esc(v)) + '</span>').join('') + '</div>';
+	const att = it.attachments || [], cargo = (it.cargo || []).slice().sort((a, b) => a.row - b.row || a.col - b.col);
+	h += '<h5>Attachments' + (att.length ? ' · ' + att.length : '') + '</h5>' + (att.length
+		? '<div class="sub-items">' + att.map(a => irow(a, slotLabel(a.slot), qty(a))).join('') + '</div>' : '<div class="muted">None</div>');
+	if (cargo.length)
+		h += '<h5>Contents · ' + cargo.length + '</h5><div class="sub-items">' + cargo.map(c => {
+			const n = countIn(c);
+			return irow(c, 'Row ' + (c.row + 1) + ', ' + (c.col + 1), n ? n + (n === 1 ? ' item' : ' items') : qty(c));
+		}).join('') + '</div>';
+	det.innerHTML = h;
+}
+document.getElementById('pModal').addEventListener('click', e => {
+	const t = e.target.closest('[data-item]');
+	if (!t) return;
+	invSel = +t.getAttribute('data-item');
+	renderInv(byGuid[selGuid]);
+});
 
 const STAT_TEXT = { health: 'health', blood: 'blood', shock: 'shock', water: 'water', energy: 'food', stamina: 'stamina', heatBuffer: 'comfort', overcast: 'overcast', rain: 'rain', fog: 'fog', snow: 'snow', windSpeed: 'wind speed', windDir: 'wind direction' };
 function cmdText(c) {
 	switch (c.action) {
 		case 'heal': return 'Heal';
 		case 'kill': return 'Kill';
-		case 'teleport': return 'Teleport to ' + grid(c.x, c.z);
+		case 'teleport': return (c.back ? 'Teleport back to ' : 'Teleport to ') + grid(c.x, c.z);
 		case 'teleportTo': { const t = players.find(o => o.steamId === c.target); return 'Teleport to ' + (t ? esc(t.name) : 'a player'); }
 		case 'set': return 'Set ' + (STAT_TEXT[c.stat] || esc(c.stat)) + ' to ' + c.value;
 		case 'message': return 'Message “' + esc(c.text) + '”';
+		case 'spawn': return 'Spawn ' + (c.value > 1 ? c.value + ' × ' : '') + esc(catalogBy[c.text] ? catName(catalogBy[c.text]) : c.text);
 		case 'weather': return (STAT_TEXT[c.stat] || esc(c.stat))[0].toUpperCase() + (STAT_TEXT[c.stat] || esc(c.stat)).slice(1) + ' → ' +
 			(c.stat === 'windSpeed' ? c.value + ' m/s' : c.stat === 'windDir' ? compass(c.value) + ' ' + c.value + '°' : Math.round(c.value * 100) + '%');
 		case 'weatherMode': return 'Weather follows ' + ({ world: "the map's rules", forecast: "only what's set", static: 'nothing (frozen)' })[c.text];
@@ -577,9 +728,20 @@ function statusHTML(c) {
 	const text = c.status === 'queued' ? 'waiting for the mod' : (c.status === 'failed' || c.status === 'expired') && c.error ? c.status + ': ' + c.error : c.status;
 	return '<span class="' + cls + '">' + esc(text) + '</span>';
 }
-function renderCmds(list, tbody) {
-	tbody.innerHTML = list.length ? list.slice(0, 10).map(c => '<tr><td class="t">' + new Date(c.queued).toLocaleTimeString() + '</td><td>' + cmdText(c) + '</td><td>' + statusHTML(c) + '</td></tr>').join('')
-		: '<tr><td class="muted">None yet.</td></tr>';
+// The dialog's last action line: the newest command to this player, or
+// every stat of the last Save together.
+let lastBatch = [];
+function renderLast() {
+	const el = document.getElementById('pLast');
+	const mine = commands.filter(c => c.guid === selGuid);
+	if (!mine.length) { el.innerHTML = ''; return; }
+	let batch = lastBatch.includes(mine[0].id) ? mine.filter(c => lastBatch.includes(c.id)).reverse() : [mine[0]];
+	let text = cmdText(batch[0]);
+	if (batch.length > 1) text = 'Set ' + batch.map(c => (STAT_TEXT[c.stat] || esc(c.stat)) + ' to ' + c.value).join(', ');
+	const bad = batch.find(c => c.status === 'failed' || c.status === 'expired');
+	const open = batch.find(c => c.status === 'queued' || c.status === 'sent');
+	el.innerHTML = 'Last action: ' + text + ' · ' + statusHTML(bad || open || batch[0]) +
+		' <span class="muted">' + new Date(batch[0].queued).toLocaleTimeString() + '</span>';
 }
 function renderKills() {
 	const tb = document.getElementById('pKills');
@@ -631,7 +793,6 @@ document.getElementById('mini').addEventListener('click', e => {
 	const r = e.currentTarget.getBoundingClientRect();
 	const x = miniCenter[0] - SPAN / 2 + (e.clientX - r.left) / r.width * SPAN;
 	const z = miniCenter[1] + SPAN / 2 - (e.clientY - r.top) / r.height * SPAN;
-	showForm('teleport');
 	tpPick = [x, z];
 	document.getElementById('tpX').value = Math.round(x);
 	document.getElementById('tpZ').value = Math.round(z);
@@ -640,26 +801,103 @@ document.getElementById('mini').addEventListener('click', e => {
 });
 
 function showForm(name) {
-	for (const [f, b] of [['Teleport', 'bTeleport'], ['Set', 'bSet'], ['Message', 'bMessage']]) {
+	for (const [f, b] of [['Set', 'bSet'], ['Message', 'bMessage'], ['Spawn', 'bSpawn']]) {
 		const on = f.toLowerCase() === name;
 		document.getElementById('f' + f).hidden = !on;
 		document.getElementById(b).classList.toggle('on', on);
 	}
-	tpPick = null;
 	if (name === 'message') document.getElementById('msgText').focus();
-	if (name === 'set') {
-		const p = byGuid[selGuid];
-		if (p) document.getElementById('setVal').value = Math.round(p[document.getElementById('setStat').value]);
+	if (name === 'set') { setMoved = {}; syncSet(byGuid[selGuid]); }
+	if (name === 'spawn') { loadItems(); document.getElementById('spFind').focus(); }
+}
+
+// ---- Spawn item: every item the server has loaded, on the ground --------
+
+let catalog = null, catalogBy = {}, spSel = null;
+const KIND_TEXT = { weapon: 'Weapon', magazine: 'Magazine', ammo: 'Ammo', clothing: 'Clothing', item: 'Item' };
+function catName(it) { return it.name && it.name[0] !== '$' ? it.name : item(it.type); }
+async function loadItems() {
+	if (catalog) { renderItems(); return; }
+	try {
+		const d = await api('GET', '/api/mod/items');
+		if (d.complete) {
+			catalog = d.items.map(it => Object.assign(it, { find: (catName(it) + ' ' + it.type).toLowerCase() }));
+			catalogBy = Object.fromEntries(catalog.map(it => [it.type, it]));
+		}
+	} catch (e) { }
+	renderItems();
+	// Still coming in from the mod: look again while the panel is open.
+	if (!catalog) setTimeout(() => { if (!document.getElementById('fSpawn').hidden) loadItems(); }, 2000);
+}
+function renderItems() {
+	const list = document.getElementById('spList');
+	if (!catalog) { list.innerHTML = '<div class="empty">The item list is still coming in from recon-mod…</div>'; renderPick(); return; }
+	const words = document.getElementById('spFind').value.toLowerCase().split(/\s+/).filter(Boolean);
+	const kind = document.getElementById('spKind').value;
+	const hits = catalog.filter(it => (!kind || it.kind === kind) && words.every(w => it.find.includes(w)));
+	const shown = hits.slice(0, 200);
+	list.innerHTML = shown.length ? shown.map(it => '<button type="button" class="sprow' + (it.type === spSel ? ' sel' : '') + '" data-type="' + esc(it.type) + '">' +
+		'<span class="nm">' + esc(catName(it)) + '<small>' + esc(it.type) + '</small></span><span class="kd">' + KIND_TEXT[it.kind] + '</span></button>').join('') +
+		(hits.length > shown.length ? '<div class="muted">' + (hits.length - shown.length).toLocaleString() + ' more: type more of the name to narrow it down.</div>' : '')
+		: '<div class="empty">No item matches.</div>';
+	renderPick();
+}
+function renderPick() {
+	const it = spSel && catalogBy[spSel];
+	document.getElementById('spPick').textContent = it ? catName(it) + ', on the ground in front of them' : (catalog ? catalog.length.toLocaleString() + ' items · pick one' : '');
+}
+document.getElementById('spFind').addEventListener('input', renderItems);
+document.getElementById('spKind').addEventListener('change', renderItems);
+document.getElementById('spList').addEventListener('click', e => {
+	const t = e.target.closest('[data-type]');
+	if (!t) return;
+	spSel = t.getAttribute('data-type');
+	renderItems();
+});
+function doSpawn() {
+	const err = document.getElementById('pErr');
+	if (!spSel) { err.textContent = 'Pick an item to spawn.'; return; }
+	const n = parseInt(document.getElementById('spCount').value, 10);
+	if (!(n >= 1 && n <= 20)) { err.textContent = 'Spawn 1 to 20 at a time.'; return; }
+	act('spawn', { text: spSel, value: n }, true); // stays open for the next item
+}
+
+// ---- Set stats: a slider per stat; Save sends the ones moved ------------
+
+const SET_STATS = [['health', 'Health', 100, 1], ['blood', 'Blood', 5000, 50], ['shock', 'Shock', 100, 1], ['water', 'Water', 5000, 50],
+	['energy', 'Food', 5000, 50], ['stamina', 'Stamina', 100, 1], ['heatBuffer', 'Comfort', 30, 0.5]];
+let setMoved = {};
+document.getElementById('setRows').innerHTML = SET_STATS.map(([k, label, max, step]) =>
+	'<div class="wrow"><span>' + label + '</span><input type="range" min="0" max="' + max + '" step="' + step + '" id="st_' + k + '" aria-label="' + label + '">' +
+	'<span class="val" id="sv_' + k + '"></span><span class="now" id="sn_' + k + '"></span></div>').join('');
+for (const [k] of SET_STATS) {
+	document.getElementById('st_' + k).addEventListener('input', e => {
+		setMoved[k] = +e.target.value;
+		syncSet(byGuid[selGuid]);
+	});
+}
+// syncSet keeps the sliders not moved yet on the live values.
+function syncSet(p) {
+	if (document.getElementById('fSet').hidden) return;
+	for (const [k, , max] of SET_STATS) {
+		const live = p ? Math.max(0, Math.min(max, p[k] || 0)) : 0;
+		const moved = k in setMoved, v = moved ? setMoved[k] : live;
+		if (!moved) document.getElementById('st_' + k).value = v;
+		const val = document.getElementById('sv_' + k);
+		val.textContent = k === 'heatBuffer' ? v.toFixed(1) : num(v);
+		val.classList.toggle('moved', moved);
+		document.getElementById('sn_' + k).textContent = moved ? 'now ' + (k === 'heatBuffer' ? live.toFixed(1) : num(live)) : '';
 	}
 }
-document.getElementById('setStat').addEventListener('change', () => showForm('set'));
 
-async function act(action, body) {
+// act queues an action; the panel it came from closes unless keepOpen.
+async function act(action, body, keepOpen) {
 	const err = document.getElementById('pErr');
 	err.textContent = '';
 	try {
-		await api('POST', '/api/mod/players/' + selGuid + '/' + action, body || {});
-		showForm('');
+		const d = await api('POST', '/api/mod/players/' + selGuid + '/' + action, body || {});
+		lastBatch = d.command ? [d.command.id] : [];
+		if (!keepOpen) showForm('');
 		poll();
 		return true;
 	} catch (e) { err.textContent = e.message; return false; }
@@ -668,17 +906,34 @@ function killPlayer() {
 	const p = byGuid[selGuid];
 	if (confirm('Kill ' + (p ? p.name : 'this player') + '? Their character dies and they start again fresh.')) act('kill');
 }
+// The teleport panel is always open; it empties after each teleport.
+function clearTeleport() {
+	tpPick = null;
+	for (const id of ['tpX', 'tpZ', 'tpTo']) document.getElementById(id).value = '';
+}
 function doTeleport() {
 	const to = document.getElementById('tpTo').value;
-	if (to) { act('teleportTo', { target: to }); return; }
+	if (to) { act('teleportTo', { target: to }).then(ok => { if (ok) clearTeleport(); }); return; }
 	const x = parseFloat(document.getElementById('tpX').value), z = parseFloat(document.getElementById('tpZ').value);
 	if (!(x > 0) || !(z > 0)) { document.getElementById('pErr').textContent = 'Enter where to (x and z, in metres), click the mini-map, or pick a player.'; return; }
-	act('teleport', { x, z, y: 0 });
+	act('teleport', { x, z, y: 0 }).then(ok => { if (ok) clearTeleport(); });
 }
-function doSet() {
-	const v = parseFloat(document.getElementById('setVal').value);
-	if (isNaN(v)) { document.getElementById('pErr').textContent = 'Enter a number.'; return; }
-	act('set', { stat: document.getElementById('setStat').value, value: v });
+async function doSet() {
+	const err = document.getElementById('pErr');
+	const changes = SET_STATS.filter(([k]) => k in setMoved);
+	if (!changes.length) { err.textContent = 'Move a slider to change that stat.'; return; }
+	err.textContent = '';
+	const ids = [];
+	for (const [k, label] of changes) {
+		try {
+			const d = await api('POST', '/api/mod/players/' + selGuid + '/set', { stat: k, value: setMoved[k] });
+			ids.push(d.command.id);
+			delete setMoved[k]; // sent: a retry after a failure doesn't send it again
+		} catch (e) { err.textContent = label + ': ' + e.message; break; }
+	}
+	if (ids.length) lastBatch = ids;
+	if (ids.length === changes.length) showForm(''); else syncSet(byGuid[selGuid]);
+	poll();
 }
 function doMessage() {
 	const t = document.getElementById('msgText').value.trim();
@@ -772,6 +1027,7 @@ function renderWorld() {
 	fb.textContent = wx.timeFrozen ? 'Unfreeze time' : 'Freeze time';
 	fb.classList.toggle('on', !!wx.timeFrozen);
 	document.querySelectorAll('#wMode button').forEach(b => b.classList.toggle('on', b.getAttribute('data-mode') === wx.mode));
+	renderTimePresets();
 	WX.forEach(([k, , , fmt]) => {
 		const now = wxNow(k, wx, false), tgt = wxNow(k, wx, true);
 		document.getElementById('wn_' + k).textContent = 'now ' + fmt(now) + (tgt !== now ? ' → ' + fmt(tgt) : '');
@@ -790,6 +1046,29 @@ function setDate() {
 	if (d.length !== 3 || t.length < 2 || d.some(isNaN) || t.some(isNaN)) { document.getElementById('wErr').textContent = 'Pick a date and a time.'; return; }
 	worldAct('date', { year: d[0], month: d[1], day: d[2], hour: t[0], minute: t[1] });
 }
+// Time presets, today: dawn at sunrise, day at noon, dusk at sunset, night
+// at 23:59. Sunrise and sunset come from the map (06:00 and 18:00 from a
+// mod too old to send them).
+function presetHour(t) {
+	const wx = (mod && mod.weather) || {};
+	return { dawn: wx.sunrise || 6, day: 12, dusk: wx.sunset || 18, night: 23 + 59 / 60 }[t];
+}
+function hhmm(h) { const m = Math.round(h * 60) % 1440; return pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
+function renderTimePresets() {
+	const real = mod && mod.weather && mod.weather.sunrise > 0;
+	document.querySelectorAll('#timePresets button').forEach(b => {
+		const t = b.getAttribute('data-t');
+		b.textContent = b.textContent.split(' ')[0] + ' ' + hhmm(presetHour(t));
+		b.title = (t === 'dawn' ? 'Sunrise' : t === 'dusk' ? 'Sunset' : t === 'day' ? 'Noon' : 'The end of the day') +
+			(real || t === 'day' || t === 'night' ? '' : ' (about: the mod on the server is too old to say)');
+	});
+}
+document.getElementById('timePresets').addEventListener('click', e => {
+	const t = e.target.getAttribute('data-t');
+	if (!t || !mod) return;
+	const d = mod.date, m = Math.round(presetHour(t) * 60) % 1440;
+	worldAct('date', { year: d[0], month: d[1], day: d[2], hour: Math.floor(m / 60), minute: m % 60 });
+});
 function toggleFreeze() { worldAct('freezeTime', { value: mod.weather && mod.weather.timeFrozen ? 0 : 1 }); }
 async function applyWeather() {
 	const trans = parseFloat(document.getElementById('wTrans').value), holdMin = parseFloat(document.getElementById('wHold').value);

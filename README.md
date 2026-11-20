@@ -22,8 +22,12 @@ and ReCON's side of it (the Live Map page and the API the mod talks to).
 The mod, on the DayZ server, sends ReCON every second every online player's live state: position,
 health, blood, shock, food, water, heat, wetness, bleeding, illnesses,
 whether they are knocked out or restrained, the item in hand, the vehicle
-they're in, and their kills and deaths this session. It also runs ReCON's
-actions on them (heal, kill, teleport, set a stat, on-screen messages) and
+they're in, and their kills and deaths this session. While a player is open
+on the Live Map, it also sends everything they carry: each slot's item, and
+inside it every attachment and every item in its cargo, with its condition,
+quantity, wetness and temperature. It also runs ReCON's
+actions on them (heal, kill, teleport, set a stat, on-screen messages, spawn
+any item the server has loaded on the ground in front of them) and
 on the world (weather, the in-game date and time).
 
 - **Server-side only.** It loads with `-servermod`, so players download

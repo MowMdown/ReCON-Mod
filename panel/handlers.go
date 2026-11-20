@@ -52,6 +52,13 @@ func handleModPlayers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "mod": st, "players": players, "commands": Commands("")})
 }
 
+// handleModItems serves GET /api/mod/items: every item the server can
+// spawn, sorted by name (complete: false while the mod is still sending them).
+func handleModItems(w http.ResponseWriter, r *http.Request) {
+	items, complete := Catalog(time.Now())
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "items": items, "complete": complete})
+}
+
 // handleModPlayer serves GET /api/mod/players/{guid}: one player's live
 // state (live: false when they aren't online or the mod isn't connected),
 // their kills and deaths, and the commands sent to them.
@@ -63,6 +70,14 @@ func handleModPlayer(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{"ok": true, "mod": st, "live": live, "commands": Commands(guid)}
 	if live {
 		out["player"] = p
+		// A page is looking at them: have the mod send their inventory.
+		Watch(guid, now)
+		if inv, ok := InventoryOf(guid, now); ok {
+			out["inventory"] = inv
+		}
+	}
+	if prev, ok := Previous(guid); ok {
+		out["previous"] = prev
 	}
 	if kills, deaths, err := killCounts(guid); err == nil {
 		out["kills"], out["deaths"] = kills, deaths
@@ -74,9 +89,10 @@ func handleModPlayer(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleModAction serves POST /api/mod/players/{guid}/{action}: queue an
-// action (heal, kill, teleport, teleportTo, set, message) for the mod.
-// Body: teleport {x, y, z}; teleportTo {target: GUID}; set {stat, value};
-// message {text, title, seconds}.
+// action (heal, kill, teleport, teleportTo, back, set, message) for the mod.
+// Body: teleport {x, y, z}; teleportTo {target: GUID}; back {} (to where
+// they were before their last teleport); set {stat, value}; message {text,
+// title, seconds}; spawn {text: class name, value: how many}.
 func handleModAction(w http.ResponseWriter, r *http.Request) {
 	var c Command
 	if err := decodeBody(w, r, &c, 1<<16); err != nil {

@@ -284,3 +284,174 @@ func TestBattlEyeGUID(t *testing.T) {
 		t.Errorf("guid %q", g)
 	}
 }
+
+func TestInventoryOnlyWhileWatched(t *testing.T) {
+	setup(t)
+	now := time.Now()
+	a := PlayerState{SteamID: steamA, Name: "A", Alive: true}
+	b := PlayerState{SteamID: steamB, Name: "B", Alive: true}
+	reply, err := Sync(syncReq(a, b), now)
+	if err != nil || len(reply.Watch) != 0 {
+		t.Fatalf("watch %v before anyone looked, err %v", reply.Watch, err)
+	}
+
+	// A page opens A: the next reply asks for A's inventory, not B's.
+	Watch(guid(steamA), now)
+	reply, _ = Sync(syncReq(a, b), now.Add(time.Second))
+	if !reflect.DeepEqual(reply.Watch, []string{steamA}) {
+		t.Fatalf("watch %v, want [%s]", reply.Watch, steamA)
+	}
+	if _, ok := InventoryOf(guid(steamA), now.Add(time.Second)); ok {
+		t.Fatal("an inventory before the mod sent one")
+	}
+
+	// The mod sends it; it is kept apart from the live state.
+	vest := Item{ID: 7, Type: "PlateCarrierVest", Slot: "Vest", Row: -1, Col: -1,
+		Cargo: []Item{{ID: 8, Type: "Mag_STANAG_30Rnd", Row: 0, Col: 1, Quantity: 30, QuantityMax: 30, Unit: "rounds"}}}
+	a.Inv, a.Inventory = true, []Item{vest}
+	at := now.Add(2 * time.Second)
+	Sync(syncReq(a, b), at)
+	inv, ok := InventoryOf(guid(steamA), at)
+	if !ok || !inv.At.Equal(at) || len(inv.Items) != 1 || inv.Items[0].Cargo[0].Quantity != 30 {
+		t.Fatalf("inventory %+v, %v", inv, ok)
+	}
+	if p, _ := PlayerOf(guid(steamA), at); p.Inv || p.Inventory != nil {
+		t.Fatal("the inventory is in the live state too")
+	}
+	if _, players := Current(at); players[0].Inventory != nil {
+		t.Fatal("the players list carries inventories")
+	}
+
+	// An empty inventory is still one.
+	b.Inv = true
+	Sync(syncReq(a, b), at)
+	if inv, ok := InventoryOf(guid(steamB), at); !ok || inv.Items == nil || len(inv.Items) != 0 {
+		t.Fatalf("empty inventory %+v, %v", inv, ok)
+	}
+
+	// Nobody looks for watchFor: the mod is told to stop.
+	reply, _ = Sync(syncReq(a, b), now.Add(watchFor+time.Second))
+	if len(reply.Watch) != 0 {
+		t.Fatalf("still watching %v", reply.Watch)
+	}
+
+	// They leave: their inventory goes.
+	Sync(syncReq(b), at)
+	if _, ok := InventoryOf(guid(steamA), at); ok {
+		t.Fatal("kept the inventory of a player who left")
+	}
+}
+
+func TestTeleportBack(t *testing.T) {
+	setup(t)
+	now := time.Now()
+	a := PlayerState{SteamID: steamA, Name: "A", Alive: true, X: 1000, Y: 212.5, Z: 2000}
+	Sync(syncReq(a), now)
+	g := guid(steamA)
+	if _, err := Queue(g, Command{Action: "back"}, now); err == nil {
+		t.Fatal("back with no previous spot")
+	}
+
+	// Teleported away: the spot they left is their previous one, once done.
+	cs, err := Queue(g, Command{Action: "teleport", X: 5000, Z: 6000}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	Sync(syncReq(a), now)
+	if _, ok := Previous(g); ok {
+		t.Fatal("previous spot before the mod ran the teleport")
+	}
+	a.X, a.Y, a.Z = 5000, 90, 6000
+	Sync(SyncRequest{V: Protocol, Key: "secret", Players: []PlayerState{a}, Results: []Result{{ID: cs.ID, OK: true}}}, now)
+	prev, ok := Previous(g)
+	if !ok || prev.X != 1000 || prev.Y != 212.5 || prev.Z != 2000 {
+		t.Fatalf("previous %+v, %v", prev, ok)
+	}
+
+	// Back is a teleport to that exact spot, height too.
+	back, err := Queue(g, Command{Action: "back"}, now)
+	if err != nil || back.Action != "teleport" || !back.Back || back.X != 1000 || back.Y != 212.5 || back.Z != 2000 {
+		t.Fatalf("back %+v, %v", back, err)
+	}
+	reply, _ := Sync(syncReq(a), now)
+	if len(reply.Commands) != 1 || reply.Commands[0].Action != "teleport" || reply.Commands[0].Y != 212.5 {
+		t.Fatalf("sent %+v", reply.Commands)
+	}
+	// Once there, back again returns them to where they were.
+	Sync(SyncRequest{V: Protocol, Key: "secret", Players: []PlayerState{a}, Results: []Result{{ID: back.ID, OK: true}}}, now)
+	if prev, _ := Previous(g); prev.X != 5000 || prev.Z != 6000 {
+		t.Fatalf("previous after back %+v", prev)
+	}
+
+	// A failed teleport changes nothing.
+	failed, _ := Queue(g, Command{Action: "teleport", X: 7000, Z: 7000}, now)
+	Sync(syncReq(a), now)
+	Sync(SyncRequest{V: Protocol, Key: "secret", Players: []PlayerState{a}, Results: []Result{{ID: failed.ID, OK: false, Error: "the player is dead"}}}, now)
+	if prev, _ := Previous(g); prev.X != 5000 {
+		t.Fatalf("a failed teleport moved the previous spot: %+v", prev)
+	}
+}
+
+func TestCatalogPagesAndSpawn(t *testing.T) {
+	setup(t)
+	now := time.Now()
+	a := PlayerState{SteamID: steamA, Name: "A", Alive: true}
+	all := []CatalogItem{{Type: "AKM", Name: "AKM", Kind: "weapon"}, {Type: "Apple", Name: "Apple", Kind: "item"},
+		{Type: "Mag_AKM_30Rnd", Name: "$STR_untranslated", Kind: "magazine"}}
+	req := func(at int, items ...CatalogItem) SyncRequest {
+		r := syncReq(a)
+		r.CatalogTotal, r.CatalogAt, r.Catalog = len(all), at, items
+		return r
+	}
+
+	// The mod says how many; ReCON asks from the first.
+	reply, _ := Sync(req(0), now)
+	if reply.CatalogNext != 1 {
+		t.Fatalf("next %d, want 1", reply.CatalogNext)
+	}
+	if _, err := Queue(guid(steamA), Command{Action: "spawn", Text: "AKM", Value: 1}, now); err == nil {
+		t.Fatal("spawn before the list came in")
+	}
+	reply, _ = Sync(req(0, all[0], all[1]), now)
+	if reply.CatalogNext != 3 {
+		t.Fatalf("next %d after 2, want 3", reply.CatalogNext)
+	}
+	// A resend of a page already taken is ignored.
+	reply, _ = Sync(req(0, all[0], all[1]), now)
+	if reply.CatalogNext != 3 {
+		t.Fatalf("next %d after a resend, want 3", reply.CatalogNext)
+	}
+	if _, complete := Catalog(now); complete {
+		t.Fatal("complete with 2 of 3")
+	}
+	reply, _ = Sync(req(2, all[2]), now)
+	items, complete := Catalog(now)
+	if reply.CatalogNext != 0 || !complete || len(items) != 3 {
+		t.Fatalf("next %d, complete %v, %d items", reply.CatalogNext, complete, len(items))
+	}
+	// Sorted by name; an untranslated name sorts by its class name.
+	if items[0].Type != "AKM" || items[1].Type != "Apple" || items[2].Type != "Mag_AKM_30Rnd" {
+		t.Fatalf("order %+v", items)
+	}
+
+	for _, bad := range []Command{{Text: "", Value: 1}, {Text: "AKM", Value: 0}, {Text: "AKM", Value: 21},
+		{Text: "AKM", Value: 1.5}, {Text: "Hatchback_02", Value: 1}} {
+		bad.Action = "spawn"
+		if _, err := Queue(guid(steamA), bad, now); err == nil {
+			t.Errorf("spawn %q x%v accepted", bad.Text, bad.Value)
+		}
+	}
+	cs, err := Queue(guid(steamA), Command{Action: "spawn", Text: " Apple ", Value: 5}, now)
+	if err != nil || cs.Text != "Apple" || cs.Value != 5 || cs.SteamID != steamA {
+		t.Fatalf("spawn %+v, %v", cs, err)
+	}
+
+	// The server restarts with another mod list: it is fetched again.
+	all = append(all, CatalogItem{Type: "Banana", Name: "Banana", Kind: "item"})
+	if reply, _ := Sync(req(0), now.Add(time.Minute)); reply.CatalogNext != 1 {
+		t.Fatalf("next %d after a reconnect, want 1", reply.CatalogNext)
+	}
+	if _, complete := Catalog(now.Add(time.Minute)); complete {
+		t.Fatal("kept the old list")
+	}
+}

@@ -59,7 +59,7 @@ class ReCON_Module : CF_ModuleWorld
 		m_Password = m_Config.RconPassword();
 		if (m_Password == "")
 		{
-			ReCON_Log.Info("no RCON password: put it in " + ReCON_Config.FILE + " (\"password\"), or set \"battlEyePath\" to the folder with BEServer_x64.cfg. ReCON won't get any data until then.");
+			ReCON_Log.Info("no RCON password: put it in " + ReCON_Config.FILE + " (\"password\"), or set \"battlEyePath\" to the folder with BattlEye's BEServer_x64_active_*.cfg. ReCON won't get any data until then.");
 			return;
 		}
 		RestApi api = GetRestApi();

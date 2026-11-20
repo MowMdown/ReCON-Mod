@@ -92,7 +92,7 @@ work:
 | Setting | What it is |
 |---|---|
 | `url` | ReCON's web address and port (the container's published port). |
-| `password` | The RCON password. Leave it empty to read `RConPassword` from BattlEye's `BEServer_x64*.cfg` (found from `-BEpath`, the profile's `BattlEye` folder, or `battleye` in the server folder). |
+| `password` | The RCON password. Leave it empty to read `RConPassword` from the `BEServer_x64_active_*.cfg` BattlEye runs from (not `BEServer_x64.cfg`; found from `-BEpath`, the profile's `BattlEye` folder, or `battleye` in the server folder). |
 | `battlEyePath` | The folder BattlEye's config is in, if the mod doesn't find it. |
 | `intervalMs` | How often to send player data and pick up commands, in milliseconds. The minimum is 250. |
 

@@ -90,6 +90,11 @@
 .bar .v .to { color: #8ab4f8; font-weight: 600; }
 .bar .v .pend { color: #fdd663; }
 .draghint { color: #888; font-size: 12px; margin-top: 2px; }
+.bar.staged .handle { display: block; background: #8ab4f8; }
+.bar.staged .track { border-color: #8ab4f8; }
+.savebar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #8ab4f8; margin-top: 2px; }
+.savebar .sp { flex: 1; }
+.savebar button { margin: 0; }
 @keyframes hudblink { to { visibility: hidden; } }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .chip { font-size: 12px; padding: 2px 9px; border-radius: 10px; border: 1px solid #444; color: #aaa; }
@@ -213,6 +218,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 		<div class="statgrid">
 			<div>
 				<div class="bars" id="pBars"></div>
+				<div id="pSave"></div>
 				<div class="chips" id="pChips"></div>
 			</div>
 			<svg id="mini" viewBox="0 0 260 260" role="img" aria-label="The 1 km around the player; click to pick a teleport spot"></svg>
@@ -536,7 +542,7 @@ document.getElementById('find').addEventListener('input', renderList);
 // ---- A player's dialog --------------------------------------------------
 
 function openPlayer(guid) {
-	drag = null; pending = {};
+	drag = null; pending = {}; staged = {};
 	selGuid = guid;
 	clearTeleport();
 	detail = null;
@@ -579,19 +585,28 @@ function bar(label, v, max, colour, blink, text) {
 }
 function num(v) { return Math.round(v).toLocaleString(); }
 
-// Draggable stat bars. pending is what was set and not yet reported back,
-// by stat: { value, id } (the command), shown as "setting …" until the
-// command finishes.
-let drag = null, pending = {};
+// Draggable stat bars: dragging one only marks the new value (staged, by
+// stat); Save sends every marked stat at once. pending is what was sent
+// and not yet reported back, by stat: { value, id } (the command), shown as
+// "setting …" until the command finishes.
+let drag = null, pending = {}, staged = {};
 const STAT_LABEL = { health: 'health', blood: 'blood', water: 'water', energy: 'food', heatBuffer: 'comfort' };
 function dragBar(stat, label, v, max, colour, blink, text, extra) {
 	const pct = Math.max(0, Math.min(100, 100 * v / max));
-	const pend = pending[stat];
-	const shown = pend ? '<span class="pend">setting ' + (stat === 'heatBuffer' ? Math.round(100 * pend.value / max) + '%' : num(pend.value)) + '…</span>' : text;
-	return '<div class="bar can' + (blink && !pend ? ' blink' : '') + '" data-stat="' + stat + '" data-max="' + max + '" data-v="' + v + '">' +
-		'<span class="k">' + label + '</span><div class="track" title="Drag to set ' + STAT_LABEL[stat] + '">' +
-		'<div class="fill" style="width:' + pct + '%;background:' + colour + '"></div>' + extra +
-		'<div class="handle" style="left:' + pct + '%"></div></div>' +
+	const pend = pending[stat], st = pend ? undefined : staged[stat];
+	const fmt = x => stat === 'heatBuffer' ? Math.round(100 * x / max) + '%' : num(x);
+	let shown = text, ghost = '', at = pct;
+	if (pend) shown = '<span class="pend">setting ' + fmt(pend.value) + '…</span>';
+	else if (st !== undefined) {
+		// Marked, not saved yet: striped from now to the new value.
+		at = Math.max(0, Math.min(100, 100 * st / max));
+		ghost = '<div class="ghost" style="left:' + Math.min(pct, at) + '%;width:' + Math.abs(at - pct) + '%"></div>';
+		shown = esc(fmt(v)) + ' → <span class="to">' + esc(fmt(st)) + '</span>';
+	}
+	return '<div class="bar can' + (st !== undefined ? ' staged' : '') + (blink && !pend ? ' blink' : '') + '" data-stat="' + stat + '" data-max="' + max + '" data-v="' + v + '">' +
+		'<span class="k">' + label + '</span><div class="track" title="Drag to set ' + STAT_LABEL[stat] + ', then Save">' +
+		'<div class="fill" style="width:' + pct + '%;background:' + colour + '"></div>' + extra + ghost +
+		'<div class="handle" style="left:' + at + '%"></div></div>' +
 		'<span class="v" style="color:' + colour + '">' + shown + '</span></div>';
 }
 // valueAt is the stat's value where the pointer is on the bar, rounded to
@@ -615,26 +630,46 @@ function showDrag(v) {
 	row.querySelector('.v').innerHTML = esc(dragText(row, drag.from)) + ' → <span class="to">' + esc(dragText(row, v)) + '</span>';
 	drag.value = v;
 }
-function endDrag(send) {
+// endDrag marks where the bar was let go (keep), or leaves it as it was
+// (Esc). Back at the live value, the mark goes.
+function endDrag(keep) {
 	if (!drag) return;
 	const d = drag;
 	drag = null;
 	d.row.classList.remove('drag');
-	if (send && Math.abs(d.value - d.from) > 1e-6) {
+	if (keep) {
 		const stat = d.row.dataset.stat;
-		pending[stat] = { value: d.value };
-		api('POST', '/api/mod/players/' + selGuid + '/set', { stat, value: d.value })
-			.then(r => { pending[stat] = { value: d.value, id: r.command.id }; lastBatch = [r.command.id]; poll(); })
-			.catch(e => { delete pending[stat]; document.getElementById('pErr').textContent = e.message; renderPlayer(); });
+		if (Math.abs(d.value - d.from) > 1e-6) staged[stat] = d.value;
+		else delete staged[stat];
 	}
 	renderPlayer();
 }
+// saveStats sends every marked stat; the last-action line shows them together.
+async function saveStats() {
+	const err = document.getElementById('pErr');
+	err.textContent = '';
+	const ids = [];
+	for (const stat of Object.keys(staged)) {
+		const value = staged[stat];
+		try {
+			const r = await api('POST', '/api/mod/players/' + selGuid + '/set', { stat, value });
+			pending[stat] = { value, id: r.command.id };
+			ids.push(r.command.id);
+			delete staged[stat];
+		} catch (e) { err.textContent = 'Setting ' + STAT_LABEL[stat] + ': ' + e.message; break; }
+	}
+	if (ids.length) lastBatch = ids;
+	poll();
+	renderPlayer();
+}
+function resetStats() { staged = {}; renderPlayer(); }
 document.getElementById('pBars').addEventListener('pointerdown', e => {
 	const row = e.target.closest('.bar.can');
 	if (!row || !e.target.closest('.track') || e.button !== 0 || pending[row.dataset.stat]) return;
 	e.preventDefault();
 	document.getElementById('pErr').textContent = '';
-	drag = { row, from: +row.dataset.v, value: +row.dataset.v, pointer: e.pointerId };
+	const live = +row.dataset.v, st = staged[row.dataset.stat];
+	drag = { row, from: live, value: st !== undefined ? st : live, pointer: e.pointerId };
 	row.classList.add('drag');
 	row.querySelector('.track').setPointerCapture(e.pointerId);
 	showDrag(valueAt(row, e.clientX));
@@ -683,7 +718,15 @@ function renderPlayer() {
 		h += dragBar('heatBuffer', 'Comfort', p.heatBuffer, p.heatBufferMax || 30, 'var(--hud-white)', false, stage + ' · ' + Math.round(100 * hbFrac) + '%',
 			p.heatBufferCap > 0 ? '<div class="cap" style="left:' + (100 * p.heatBufferCap) + '%" title="The most their clothes allow"></div>' : '');
 		// Not while a bar is being dragged: redrawing would drop the drag.
-		if (!drag) document.getElementById('pBars').innerHTML = h + '<div class="draghint">Drag Health, Blood, Water, Food or Comfort left or right to set it (or click a spot on the bar). Esc cancels a drag.</div>';
+		const n = Object.keys(staged).length;
+		const foot = n
+			? '<div class="savebar"><span>' + n + (n === 1 ? ' change' : ' changes') + ' not saved</span><span class="sp"></span>' +
+				'<button type="button" class="go" onclick="saveStats()">Save</button><button type="button" onclick="resetStats()">Reset</button></div>'
+			: '<div class="draghint">Drag Health, Blood, Water, Food or Comfort to where you want it (or click a spot on the bar), then Save. Esc cancels a drag.</div>';
+		if (!drag) document.getElementById('pBars').innerHTML = h;
+		// Apart from the bars (redrawn every second), so a click on Save isn't lost.
+		const save = document.getElementById('pSave');
+		if (save.getAttribute('data-n') !== String(n)) { save.innerHTML = foot; save.setAttribute('data-n', n); }
 		const chips = [];
 		chips.push(p.bleeding ? ['red', 'Bleeding · ' + p.bleeding + (p.bleeding === 1 ? ' wound' : ' wounds')] : ['', 'Not bleeding']);
 		(p.illnesses || []).forEach(i => chips.push(['amber', i[0].toUpperCase() + i.slice(1)]));
@@ -698,6 +741,9 @@ function renderPlayer() {
 		drawMini(p);
 	} else {
 		document.getElementById('pBars').innerHTML = '<div class="empty">They aren\'t on the server now, so there is no live data.</div>';
+		staged = {};
+		const save = document.getElementById('pSave');
+		save.innerHTML = ''; save.setAttribute('data-n', '');
 		document.getElementById('pChips').innerHTML = '';
 		document.getElementById('mini').innerHTML = '';
 		['tHands', 'tVehicle', 'tKD'].forEach(id => document.getElementById(id).textContent = '—');

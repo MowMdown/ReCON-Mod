@@ -181,3 +181,28 @@ World actions, modelled on Community Online Tools' weather module (`mod.weather`
 - `date` `{"year", "month", "day", "hour", "minute"}`: the in-game date and time.
 - `freezeTime` `{"value"}`: 1 stops the in-game clock, 0 starts it again.
 
+
+## Credits and licences
+
+ReCON-Mod's own code is under the [MIT License](LICENSE). [NOTICE](NOTICE)
+lists what it builds on or learned from, and their licences:
+
+- **DayZ** (Bohemia Interactive). The mod uses DayZ's script API, and the
+  Live Map uses the thresholds and colours from DayZ's scripts for the HUD
+  colours. DayZ's scripts are under the
+  [DayZ Public License](https://www.bohemia.net/community/licenses/dayz-public-license-dpl):
+  attribution, **non-commercial**, DayZ only. Keep your use of the mod
+  within it, and within Bohemia's rules for servers. This project is not
+  made or endorsed by Bohemia Interactive.
+- **[Community Framework](https://github.com/Jacob-Mango/DayZ-Community-Framework)**
+  by Jacob_Mango and Arkensor (LGPL 2.1), a dependency loaded on the server.
+  It isn't included here.
+- **[Community Online Tools](https://github.com/Jacob-Mango/DayZ-CommunityOnlineTools)**
+  by Jacob_Mango and contributors (CC BY-SA 4.0). The heal action and the
+  weather and time controls are modelled on how COT does them, and written
+  here with DayZ's own API. No COT code is copied.
+- **[Leaflet](https://leafletjs.com)** (BSD 2-Clause) draws the Live Map; ReCON
+  ships it with its licence.
+
+A picture of a map you put in ReCON's `maps` folder must be one you have the
+right to use. Many online DayZ map images belong to their makers.

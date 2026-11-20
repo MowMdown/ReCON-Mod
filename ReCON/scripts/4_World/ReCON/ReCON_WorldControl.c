@@ -1,5 +1,7 @@
 // ReCON_WorldControl reads and changes the weather and the in-game time,
-// the way Community Online Tools' weather module does: each weather part
+// modelled on how Community Online Tools' weather module does it (COT, by
+// Jacob_Mango and contributors, CC BY-SA 4.0; written here with DayZ's own
+// script API, no COT code copied; see NOTICE): each weather part
 // is given a forecast to reach over some seconds and keep for at least
 // some seconds, and the weather as a whole follows the map's rules
 // ("world"), only what was set ("forecast"), or stays as it is ("static").

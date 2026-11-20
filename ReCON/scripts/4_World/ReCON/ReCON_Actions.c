@@ -73,8 +73,9 @@ class ReCON_Actions
 	// Heal restores health, blood, shock, food, water and stamina; stops
 	// bleeding; cures illnesses and their symptoms; mends broken legs; and
 	// wakes them if knocked out. A player another tool made invulnerable is
-	// made vulnerable for the moment, or the health changes don't stick
-	// (Community Online Tools does the same).
+	// made vulnerable for the moment, or the health changes don't stick.
+	// Modelled on Community Online Tools' heal (COT, by Jacob_Mango and
+	// contributors, CC BY-SA 4.0; no COT code copied; see NOTICE).
 	static void Heal(PlayerBase p)
 	{
 		bool allowDamage = p.GetAllowDamage();

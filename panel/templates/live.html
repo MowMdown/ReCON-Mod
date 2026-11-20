@@ -11,7 +11,8 @@
 <style>
 /* Live Map (recon-mod): the online players on the left, the map on the
    right; a player's stats and actions in a dialog, the weather and time in
-   another. The stats use DayZ's own HUD colours. */
+   another. The stats use DayZ's own HUD colours and thresholds, from
+   DayZ's scripts (Bohemia Interactive, DayZ Public License; see NOTICE). */
 :root { --hud-white: rgb(220,220,220); --hud-yellow: rgb(220,220,0); --hud-red: rgb(220,0,0); --hud-lblue: rgb(0,206,209); --hud-blue: rgb(30,144,220); }
 .live { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; height: calc(100vh - 210px); min-height: 420px; }
 @media (max-width: 760px) { .live { grid-template-columns: minmax(0, 1fr); height: auto; } .mapwrap { height: 70vh; } }

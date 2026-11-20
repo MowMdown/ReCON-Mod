@@ -1,0 +1,135 @@
+// ReCON_Actions runs one command from ReCON on the server.
+class ReCON_Actions
+{
+	static ReCON_Result Run(ReCON_Command c)
+	{
+		ReCON_Result r = new ReCON_Result();
+		r.id = c.id;
+		PlayerBase p = ReCON_Players.BySteamId(c.steamId);
+		if (!p)
+		{
+			r.error = "the player isn't online";
+			return r;
+		}
+		if (!p.IsAlive())
+		{
+			r.error = "the player is dead";
+			return r;
+		}
+		string err;
+		PlayerBase to;
+		vector at;
+		switch (c.action)
+		{
+			case "heal":
+				Heal(p);
+				break;
+			case "kill":
+				p.SetHealth(0);
+				break;
+			case "teleport":
+				err = Teleport(p, c.x, c.y, c.z);
+				break;
+			case "teleportTo":
+				to = ReCON_Players.BySteamId(c.target);
+				if (!to)
+					err = "the player to go to isn't online";
+				else
+				{
+					at = to.GetPosition();
+					err = Teleport(p, at[0] + 1, at[1], at[2] + 1);
+				}
+				break;
+			case "set":
+				err = SetStat(p, c.stat, c.value);
+				break;
+			case "message":
+				err = Message(p, c.title, c.text, c.seconds);
+				break;
+			default:
+				err = "unknown action " + c.action;
+				break;
+		}
+		r.ok = err == "";
+		r.error = err;
+		ReCON_Log.Info(c.action + " " + c.steamId + ": " + ResultText(r));
+		return r;
+	}
+
+	protected static string ResultText(ReCON_Result r)
+	{
+		if (r.ok)
+			return "done";
+		return r.error;
+	}
+
+	// Heal restores health, blood, shock, food and water; stops bleeding;
+	// cures illnesses; mends broken legs; and wakes them if knocked out
+	// (full shock does that on its own).
+	static void Heal(PlayerBase p)
+	{
+		DamageSystem.ResetAllZones(p);
+		if (p.GetStatWater())
+			p.GetStatWater().Set(p.GetStatWater().GetMax());
+		if (p.GetStatEnergy())
+			p.GetStatEnergy().Set(p.GetStatEnergy().GetMax());
+		if (p.GetBleedingManagerServer())
+			p.GetBleedingManagerServer().RemoveAllSources();
+		p.RemoveAllAgents();
+		if (p.GetBrokenLegs() != eBrokenLegs.NO_BROKEN_LEGS)
+			p.SetBrokenLegs(eBrokenLegs.NO_BROKEN_LEGS);
+	}
+
+	// Teleport moves them (and their vehicle) to x, z; y 0 or below means
+	// ground level there.
+	static string Teleport(PlayerBase p, float x, float y, float z)
+	{
+		if (x <= 0 || z <= 0)
+			return "no position";
+		if (y <= 0)
+			y = g_Game.SurfaceY(x, z);
+		DeveloperTeleport.SetPlayerPosition(p, Vector(x, y, z));
+		return "";
+	}
+
+	static string SetStat(PlayerBase p, string stat, float value)
+	{
+		if (value < 0)
+			value = 0;
+		switch (stat)
+		{
+			case "health":
+				p.SetHealth("", "Health", Math.Min(value, p.GetMaxHealth("", "Health")));
+				return "";
+			case "blood":
+				p.SetHealth("", "Blood", Math.Min(value, p.GetMaxHealth("", "Blood")));
+				return "";
+			case "shock":
+				p.SetHealth("", "Shock", Math.Min(value, p.GetMaxHealth("", "Shock")));
+				return "";
+			case "water":
+				if (!p.GetStatWater())
+					return "no water stat";
+				p.GetStatWater().Set(Math.Min(value, p.GetStatWater().GetMax()));
+				return "";
+			case "energy":
+				if (!p.GetStatEnergy())
+					return "no food stat";
+				p.GetStatEnergy().Set(Math.Min(value, p.GetStatEnergy().GetMax()));
+				return "";
+		}
+		return "unknown stat " + stat;
+	}
+
+	static string Message(PlayerBase p, string title, string text, float seconds)
+	{
+		if (text == "")
+			return "no message";
+		if (title == "")
+			title = "Server";
+		if (seconds <= 0)
+			seconds = 8;
+		NotificationSystem.SendNotificationToPlayerIdentityExtended(p.GetIdentity(), seconds, title, text);
+		return "";
+	}
+};

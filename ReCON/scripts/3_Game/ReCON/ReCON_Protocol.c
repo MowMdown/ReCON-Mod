@@ -35,7 +35,7 @@ class ReCON_PlayerState
 	float blood;     // 0-5000
 	float shock;     // 0-100 (low knocks out)
 	float water;     // 0-5000
-	float energy;    // 0-20000 (food)
+	float energy;    // 0-5000 (food)
 	float heat;      // heat comfort, -1 (freezing) .. 1 (overheating)
 	int wet;         // 0 dry, 1 wet
 	float stamina;

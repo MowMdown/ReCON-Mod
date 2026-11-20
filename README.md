@@ -1,11 +1,19 @@
 # ReCON-Mod
 
-The DayZ server-side companion mod for [ReCON](https://github.com/MowMdown/ReCON).
-Every second it sends ReCON every online player's live state: position,
+The DayZ server-side companion mod for [ReCON](https://github.com/MowMdown/ReCON),
+and ReCON's side of it (the Live Map page and the API the mod talks to).
+
+| Path | Contents |
+|---|---|
+| `ReCON/` | The DayZ mod (Enforce script, built on CF), packed into `@ReCON/addons/ReCON.pbo` |
+| `panel/` | A Go package ReCON builds in on request: the Live Map page (`templates/live.html`), the API, the command queue and the kills table |
+
+The mod, on the DayZ server, sends ReCON every second every online player's live state: position,
 health, blood, shock, food, water, heat, wetness, bleeding, illnesses,
 whether they are knocked out or restrained, the item in hand, the vehicle
 they're in, and their kills and deaths this session. It also runs ReCON's
-actions on them: heal, kill, teleport, set a stat, and on-screen messages.
+actions on them (heal, kill, teleport, set a stat, on-screen messages) and
+on the world (weather, the in-game date and time).
 
 - **Server-side only.** It loads with `-servermod`, so players download
   nothing and no keys are needed.
@@ -112,3 +120,64 @@ World actions, modelled on Community Online Tools' weather module:
 | `rainThresholds` | `min` and `max` (the overcast range rain falls in), `transition` (seconds to stop). |
 | `date` | `year`, `month`, `day`, `hour`, `minute`. |
 | `freezeTime` | `value`: 1 stops the clock, 0 starts it. |
+
+## ReCON's side: the Live Map
+
+ReCON has none of this unless it is built with it:
+`docker build --build-arg RECON_MOD=true .` in the ReCON repository (see its
+README). That copies `cmd/recon/_mod/recon_mod.go` in, which hands
+`panel.Start` ReCON's database, the RCON password and its hooks for pages,
+routes and nav links.
+
+The **Live Map** page (`/live`, in the nav after Server Info):
+
+- **Left:** every online player, with their map grid square, what's in their
+  hands or the vehicle they're in, a health bar, and chips for bleeding,
+  illness, knocked out and restrained. A search box filters the list.
+- **Right:** the map, with each player as an arrow showing their heading,
+  updated every second. Drag to pan, scroll to zoom; **Fit** zooms to
+  everyone. It is a 1 km grid with the map's coordinates; to draw the
+  terrain under it, put a picture of the whole map (square, north up) in
+  ReCON's data folder as `maps/<world>.jpg` (or `.png`, `.webp`), such as
+  `maps/chernarusplus.jpg`. Above it: the weather and the in-game time.
+- **Clicking a player** opens their stats: health, blood, water and food in
+  DayZ's HUD colours (white, yellow, red, blinking red at the same
+  thresholds as the game), shock, stamina, temperature (the game's hot and
+  cold colours) and comfort (the heat buff, with its +/++/+++ stage and the
+  most their clothes allow), conditions, a mini-map of the 1 km around them,
+  what's in hand, vehicle, kills and deaths, and the actions: Heal,
+  Teleport (to a spot, a mini-map click or another player), Set stat,
+  Message and Kill. Each action's result shows below them.
+- **World…** sets the in-game date and time, freezes the clock, and sets the
+  weather: overcast, rain, fog, snow, wind speed and direction, and
+  lightning, with presets (Clear, Cloudy, Rain, Thunderstorm, Fog, Snow),
+  over how many seconds the change happens and how long it holds; whether
+  the weather follows the map's rules, only what was set, or is frozen; and
+  the overcast range rain falls in.
+
+While the mod is connected, ReCON's Server Info page takes the in-game date
+from it (for sunrise and sunset) rather than from `SERVER_TIME`.
+
+### The API
+
+ReCON stores every death the mod reports (its own `mod_kills` table) and the SteamIDs it reports.
+
+| Method | Path | Body | Description |
+| ------ | ---- | ---- | ----------- |
+| POST | `/api/mod/sync` | the mod's sync | Used by the mod only: player data in, commands out (403 with the wrong password) |
+| GET  | `/api/mod/players` | | `mod` (`connected`, `lastSync`, `world`, in-game `date`), every online player's live state with their `guid`, and the recent commands |
+| GET  | `/api/mod/players/<guid>` | | One player: `live` and `player` (when online), `kills`, `deaths`, `recentKills`, and the commands sent to them |
+| POST | `/api/mod/players/<guid>/<action>` | see below | Queue an action. The mod runs it on its next sync; its `status` (`queued`, `sent`, `done`, `failed`, `expired`) shows in the commands |
+| POST | `/api/mod/world/<action>` | see below | Queue a weather or time change, the same way |
+
+Actions: `heal` (full health, blood, shock, food and water; stops bleeding, cures illnesses, mends broken legs), `kill`, `teleport` `{"x", "z", "y"}` (`y` 0 = ground level), `teleportTo` `{"target": "<guid>"}`, `set` `{"stat": "health|blood|shock|water|energy|stamina|heatBuffer", "value"}`, `message` `{"text", "title", "seconds"}`. A command the mod hasn't answered within 30 seconds expires.
+
+World actions, modelled on Community Online Tools' weather module (`mod.weather` in `/api/mod/players` shows the weather now and where it is heading):
+
+- `weather` `{"stat", "value", "transition", "hold"}`: `stat` is `overcast`, `rain`, `fog`, `snow` (0 to 1), `windSpeed` (m/s) or `windDir` (degrees). It changes to `value` over `transition` seconds and stays at least `hold` seconds.
+- `weatherMode` `{"text"}`: `world` (the map's weather rules), `forecast` (only what was set) or `static` (frozen as it is).
+- `storm` `{"value", "min", "hold"}`: lightning density (0 to 1), the overcast it starts at, and the seconds between strikes.
+- `rainThresholds` `{"min", "max", "transition"}`: the overcast range rain falls in, and the seconds it takes to stop.
+- `date` `{"year", "month", "day", "hour", "minute"}`: the in-game date and time.
+- `freezeTime` `{"value"}`: 1 stops the in-game clock, 0 starts it again.
+

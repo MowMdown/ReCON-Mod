@@ -17,6 +17,7 @@ class ReCON_Sync
 	int day;
 	int hour;
 	int minute;
+	ref ReCON_World weather = new ReCON_World();
 	ref array<ref ReCON_PlayerState> players = new array<ref ReCON_PlayerState>();
 	ref array<ref ReCON_Event> events = new array<ref ReCON_Event>();
 	ref array<ref ReCON_Result> results = new array<ref ReCON_Result>();
@@ -54,6 +55,25 @@ class ReCON_PlayerState
 	int deaths;
 };
 
+// The weather now, and where each part is heading (the forecast).
+class ReCON_World
+{
+	float overcast;      // 0-1
+	float rain;          // 0-1
+	float fog;           // 0-1
+	float snow;          // 0-1
+	float windSpeed;     // m/s
+	float windDir;       // degrees
+	float overcastTarget;
+	float rainTarget;
+	float fogTarget;
+	float snowTarget;
+	float windSpeedTarget;
+	float windDirTarget;
+	string mode;         // world: the map's weather; forecast: only what was set; static: frozen
+	bool timeFrozen;
+};
+
 class ReCON_Event
 {
 	string type;       // "kill"
@@ -72,7 +92,9 @@ class ReCON_Event
 class ReCON_Command
 {
 	int id;
-	string action;   // heal | kill | teleport | teleportTo | set | message
+	// On a player: heal | kill | teleport | teleportTo | set | message.
+	// On the world: weather | weatherMode | storm | rainThresholds | date | freezeTime.
+	string action;
 	string steamId;  // the player it acts on
 	string target;   // teleportTo: the player to go to
 	float x;         // teleport: where (y 0 = ground level)
@@ -83,6 +105,23 @@ class ReCON_Command
 	string text;     // message
 	string title;
 	float seconds;
+	// weather: stat is overcast | rain | fog | snow | windSpeed | windDir (degrees),
+	// value where it goes, over transition seconds, staying at least hold seconds.
+	float transition;
+	float hold;
+	// weatherMode: text is world | forecast | static. freezeTime: value 1 or 0.
+	// storm: value is the density (0-1), min the overcast lightning starts
+	// at, hold the seconds between strikes.
+	// rainThresholds: rain falls when overcast is between min and max;
+	// transition is how long it takes to stop.
+	float min;
+	float max;
+	// date: the in-game date and time.
+	int year;
+	int month;
+	int day;
+	int hour;
+	int minute;
 };
 
 class ReCON_Result

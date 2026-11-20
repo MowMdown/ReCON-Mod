@@ -86,6 +86,10 @@ ReCON answers with:
                  "text": "", "title": "", "seconds": 0 }] }
 ```
 
+It also sends `weather`: the overcast, rain, fog, snow, wind speed and
+direction now, where each is heading, the weather mode, and whether time
+is frozen.
+
 Each command's result comes back in the next sync. Events and results
 that ReCON didn't get, because it was down or refused them, are sent again.
 
@@ -97,3 +101,14 @@ that ReCON didn't get, because it was down or refused them, are sent again.
 | `teleportTo` | `target`: the SteamID64 of the player to go to. |
 | `set` | `stat` (`health`, `blood`, `shock`, `water`, `energy`, `stamina` or `heatBuffer`) and `value`. |
 | `message` | `text`, plus optional `title` and `seconds`. Shown as an in-game notification. |
+
+World actions, modelled on Community Online Tools' weather module:
+
+| Action | Fields |
+|---|---|
+| `weather` | `stat` (`overcast`, `rain`, `fog`, `snow` from 0 to 1, `windSpeed` in m/s, `windDir` in degrees), `value`, `transition` (seconds to get there), `hold` (seconds to stay at least). |
+| `weatherMode` | `text`: `world` (the map's weather rules), `forecast` (only what was set) or `static` (frozen). |
+| `storm` | `value` (lightning density 0-1), `min` (the overcast it starts at), `hold` (seconds between strikes). |
+| `rainThresholds` | `min` and `max` (the overcast range rain falls in), `transition` (seconds to stop). |
+| `date` | `year`, `month`, `day`, `hour`, `minute`. |
+| `freezeTime` | `value`: 1 stops the clock, 0 starts it. |

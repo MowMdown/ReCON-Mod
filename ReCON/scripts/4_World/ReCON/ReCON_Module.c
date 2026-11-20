@@ -124,6 +124,7 @@ class ReCON_Module : CF_ModuleWorld
 		g_Game.GetWorldName(sync.world);
 		sync.world.ToLower();
 		g_Game.GetWorld().GetDate(sync.year, sync.month, sync.day, sync.hour, sync.minute);
+		ReCON_WorldControl.Read(sync.weather);
 
 		array<Man> men = new array<Man>();
 		g_Game.GetPlayers(men);

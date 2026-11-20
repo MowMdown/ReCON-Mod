@@ -5,6 +5,13 @@ class ReCON_Actions
 	{
 		ReCON_Result r = new ReCON_Result();
 		r.id = c.id;
+		if (ReCON_WorldControl.IsWorldAction(c.action))
+		{
+			r.error = ReCON_WorldControl.Run(c);
+			r.ok = r.error == "";
+			ReCON_Log.Info(c.action + ": " + ResultText(r));
+			return r;
+		}
 		PlayerBase p = ReCON_Players.BySteamId(c.steamId);
 		if (!p)
 		{

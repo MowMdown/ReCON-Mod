@@ -101,7 +101,18 @@
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .chip { font-size: 12px; padding: 2px 9px; border-radius: 10px; border: 1px solid #444; color: #aaa; }
 .chip.blue { border-color: #2f4f7a; color: #8ab4f8; }
-#mini { width: 260px; height: 260px; background: #161a17; border: 1px solid #333; border-radius: 6px; cursor: crosshair; }
+#mini { display: block; width: 260px; height: 260px; background: #161a17; border: 1px solid #333; border-radius: 6px; cursor: crosshair; touch-action: none; user-select: none; }
+#mini.panning { cursor: grabbing; }
+/* The mini-map's overlays: the point under the cursor and Recenter at
+   the top, the scale at the bottom. */
+.miniwrap { position: relative; align-self: start; }
+.minihud { position: absolute; top: 6px; left: 6px; right: 6px; display: flex; align-items: center; gap: 6px; pointer-events: none; font-size: 11.5px; color: #cfd8d0; }
+.minihud #miniXY { background: rgba(17,17,17,.75); border-radius: 4px; padding: 1px 6px; }
+.minihud #miniXY:empty { display: none; }
+.minihud .sp { flex: 1; }
+.minihud button { pointer-events: auto; margin: 0; padding: 3px 8px; font-size: 11.5px; background: rgba(34,34,34,.92); color: #ddd; border: 1px solid #555; border-radius: 4px; }
+.minihud button:hover { border-color: #8ab4f8; color: #fff; }
+.miniscale { position: absolute; right: 8px; bottom: 6px; font-size: 11px; color: #6b786d; pointer-events: none; }
 .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0 14px; }
 .tile { background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px 12px; }
 .tile .k { font-size: 12px; color: #aaa; margin-bottom: 3px; }
@@ -230,7 +241,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 			<span class="badge" id="wxBadge" hidden></span>
 			<span class="badge" id="timeBadge" hidden></span>
 			<span class="sp"></span>
-			<button type="button" onclick="fitAll()" title="Fit everyone on the map">Fit</button>
+			<button type="button" onclick="fitAll()" title="Show the whole map">Fit</button>
 			<button type="button" id="worldBtn" onclick="openWorld()" disabled>World…</button>
 		</div>
 	</div>
@@ -255,7 +266,11 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 				<div id="pSave"></div>
 				<div class="chips" id="pChips"></div>
 			</div>
-			<svg id="mini" viewBox="0 0 260 260" role="img" aria-label="The 1 km around the player; click to pick a teleport spot"></svg>
+			<div class="miniwrap">
+				<svg id="mini" viewBox="0 0 260 260" role="img" aria-label="The map around the player: drag to move, scroll to zoom, click to pick a teleport spot"></svg>
+				<div class="minihud"><span id="miniXY"></span><span class="sp"></span><button type="button" id="miniFollow" hidden title="Zoom back in to 100 m on the player and follow them again">Recenter</button></div>
+				<div class="miniscale" id="miniScale"></div>
+			</div>
 		</div>
 		<div class="tiles">
 			<div class="tile"><div class="k">In hands</div><div class="v" id="tHands"></div></div>
@@ -492,9 +507,10 @@ function drawMarkers() {
 	for (const g in markers) if (!seen[g]) { markers[g].remove(); delete markers[g]; }
 }
 
+// fitAll shows the whole map in the window.
 function fitAll() {
-	if (!players.length) { map.fitBounds([[0, 0], [size || 15360, size || 15360]]); return; }
-	map.fitBounds(L.latLngBounds(players.map(p => [p.z, p.x])).pad(0.3), { maxZoom: -1 });
+	const s = size || 15360;
+	map.fitBounds([[0, 0], [s, s]]);
 }
 
 // ---- The page -----------------------------------------------------------
@@ -579,6 +595,7 @@ document.getElementById('find').addEventListener('input', renderList);
 // ---- A player's dialog --------------------------------------------------
 
 function openPlayer(guid) {
+	resetMini();
 	drag = null; pending = {}; staged = {};
 	selGuid = guid;
 	clearTeleport();
@@ -959,39 +976,109 @@ document.getElementById('pKills').addEventListener('click', e => {
 	if (byGuid[g]) openPlayer(g); else location.href = '/players#details=' + g;
 });
 
-// The mini-map: 1 km around the player, a 100 m grid, the others nearby.
-const MINI = 260, SPAN = 1000;
-let miniCenter = null, tpPick = null;
+// The mini-map: the map around the player, a grid, the others in view.
+// It follows the player until it is dragged (pan) or zoomed with the
+// wheel away from them; Recenter zooms back in to 100 m
+// on the player and follows them again. Each wheel notch zooms
+// 100 m in or out (no closer than 100 m across). A click that isn't a
+// drag picks a teleport spot.
+const MINI = 260;
+let mini = { span: 1000, cx: 0, cz: 0, follow: true }, tpPick = null;
+function resetMini() { mini = { span: 1000, cx: 0, cz: 0, follow: true }; }
+function miniMax() { return Math.max(1000, size || 15360); }
 function drawMini(p) {
 	const s = document.getElementById('mini');
-	miniCenter = [p.x, p.z];
-	const x0 = p.x - SPAN / 2, z0 = p.z - SPAN / 2;
-	const px = x => (x - x0) / SPAN * MINI, pz = z => MINI - (z - z0) / SPAN * MINI;
+	if (mini.follow) { mini.cx = p.x; mini.cz = p.z; }
+	const span = mini.span, x0 = mini.cx - span / 2, z0 = mini.cz - span / 2;
+	const px = x => (x - x0) / span * MINI, pz = z => MINI - (z - z0) / span * MINI;
+	const inView = (x, z) => x >= x0 && x <= x0 + span && z >= z0 && z <= z0 + span;
+	// Grid: 10 m very close, 100 m close, 500 m or 1 km further out; every
+	// 100 m (10 m grid) or km brighter.
+	const step = span <= 300 ? 10 : span <= 1500 ? 100 : span <= 6000 ? 500 : 1000, major = step < 100 ? 100 : 1000;
 	let h = '';
-	for (let g = Math.ceil(x0 / 100) * 100; g <= x0 + SPAN; g += 100) h += '<line x1="' + px(g) + '" x2="' + px(g) + '" y1="0" y2="' + MINI + '" stroke="' + (g % 1000 ? '#232a24' : '#3a463c') + '"/>';
-	for (let g = Math.ceil(z0 / 100) * 100; g <= z0 + SPAN; g += 100) h += '<line y1="' + pz(g) + '" y2="' + pz(g) + '" x1="0" x2="' + MINI + '" stroke="' + (g % 1000 ? '#232a24' : '#3a463c') + '"/>';
+	for (let g = Math.ceil(x0 / step) * step; g <= x0 + span; g += step) h += '<line x1="' + px(g) + '" x2="' + px(g) + '" y1="0" y2="' + MINI + '" stroke="' + (g % major ? '#232a24' : '#3a463c') + '"/>';
+	for (let g = Math.ceil(z0 / step) * step; g <= z0 + span; g += step) h += '<line y1="' + pz(g) + '" y2="' + pz(g) + '" x1="0" x2="' + MINI + '" stroke="' + (g % major ? '#232a24' : '#3a463c') + '"/>';
+	// The map's edges, when in view.
+	const ms = size || 15360;
+	h += '<rect x="' + px(0) + '" y="' + pz(ms) + '" width="' + (px(ms) - px(0)) + '" height="' + (pz(0) - pz(ms)) + '" fill="none" stroke="#4a5a4d" stroke-width="1"/>';
 	players.forEach(o => {
-		if (o.guid === p.guid || Math.abs(o.x - p.x) > SPAN / 2 || Math.abs(o.z - p.z) > SPAN / 2) return;
+		if (o.guid === p.guid || !inView(o.x, o.z)) return;
 		const d = Math.round(Math.hypot(o.x - p.x, o.z - p.z)), right = px(o.x) > MINI - 110;
 		h += '<circle cx="' + px(o.x) + '" cy="' + pz(o.z) + '" r="4.5" fill="' + colorOf(o.guid) + '" stroke="#111"/>' +
-			'<text x="' + (px(o.x) + (right ? -8 : 8)) + '" y="' + (pz(o.z) + 4) + '" fill="#bbb" font-size="11"' + (right ? ' text-anchor="end"' : '') + '>' + esc(o.name) + ' · ' + d + ' m</text>';
+			'<text x="' + (px(o.x) + (right ? -8 : 8)) + '" y="' + (pz(o.z) + 4) + '" fill="#bbb" font-size="11"' + (right ? ' text-anchor="end"' : '') + '>' + esc(o.name) + ' · ' + (d >= 1000 ? (d / 1000).toFixed(1) + ' km' : d + ' m') + '</text>';
 	});
-	if (tpPick) h += '<circle cx="' + px(tpPick[0]) + '" cy="' + pz(tpPick[1]) + '" r="6" fill="none" stroke="#8ab4f8" stroke-width="2"/>';
-	h += '<g transform="translate(' + px(p.x) + ',' + pz(p.z) + ') rotate(' + p.heading + ')"><path d="M0,-9 L6.3,7.2 L0,3.2 L-6.3,7.2 Z" fill="' + colorOf(p.guid) + '" stroke="#111" stroke-width="1.2"/></g>';
-	h += '<text x="' + (MINI - 6) + '" y="' + (MINI - 7) + '" fill="#6b786d" font-size="10" text-anchor="end">100 m grid</text>';
+	if (tpPick && inView(tpPick[0], tpPick[1])) h += '<circle cx="' + px(tpPick[0]) + '" cy="' + pz(tpPick[1]) + '" r="6" fill="none" stroke="#8ab4f8" stroke-width="2"/>' +
+		'<line x1="' + (px(tpPick[0]) - 10) + '" x2="' + (px(tpPick[0]) + 10) + '" y1="' + pz(tpPick[1]) + '" y2="' + pz(tpPick[1]) + '" stroke="#8ab4f8"/>' +
+		'<line y1="' + (pz(tpPick[1]) - 10) + '" y2="' + (pz(tpPick[1]) + 10) + '" x1="' + px(tpPick[0]) + '" x2="' + px(tpPick[0]) + '" stroke="#8ab4f8"/>';
+	if (inView(p.x, p.z)) h += '<g transform="translate(' + px(p.x) + ',' + pz(p.z) + ') rotate(' + p.heading + ')"><path d="M0,-9 L6.3,7.2 L0,3.2 L-6.3,7.2 Z" fill="' + colorOf(p.guid) + '" stroke="#111" stroke-width="1.2"/></g>';
 	s.innerHTML = h;
+	document.getElementById('miniScale').textContent = (step >= 1000 ? step / 1000 + ' km' : step + ' m') + ' grid · ' + (span >= 1000 ? (span / 1000).toFixed(1).replace(/\.0$/, '') + ' km' : span + ' m') + ' across';
+	document.getElementById('miniFollow').hidden = mini.follow && mini.span === 100;
 }
-document.getElementById('mini').addEventListener('click', e => {
-	if (!miniCenter) return;
-	const r = e.currentTarget.getBoundingClientRect();
-	const x = miniCenter[0] - SPAN / 2 + (e.clientX - r.left) / r.width * SPAN;
-	const z = miniCenter[1] + SPAN / 2 - (e.clientY - r.top) / r.height * SPAN;
-	tpPick = [x, z];
-	document.getElementById('tpX').value = Math.round(x);
-	document.getElementById('tpZ').value = Math.round(z);
+// miniAt is the map point (x, z) under the pointer.
+function miniAt(e) {
+	const r = document.getElementById('mini').getBoundingClientRect();
+	const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+	return { x: mini.cx + (fx - 0.5) * mini.span, z: mini.cz - (fy - 0.5) * mini.span, fx, fy };
+}
+function redrawMini() { const p = byGuid[selGuid]; if (p) drawMini(p); }
+let miniDrag = null;
+const miniEl = document.getElementById('mini');
+miniEl.addEventListener('pointerdown', e => {
+	if (e.button !== 0) return;
+	miniDrag = { id: e.pointerId, x: e.clientX, y: e.clientY, cx: mini.cx, cz: mini.cz, moved: false };
+	miniEl.setPointerCapture(e.pointerId);
+});
+miniEl.addEventListener('pointermove', e => {
+	const at = miniAt(e);
+	document.getElementById('miniXY').textContent = at.x >= 0 && at.z >= 0 ? Math.round(at.x) + ', ' + Math.round(at.z) + ' · ' + grid(at.x, at.z) : '';
+	if (!miniDrag || e.pointerId !== miniDrag.id) return;
+	const r = miniEl.getBoundingClientRect(), dx = e.clientX - miniDrag.x, dy = e.clientY - miniDrag.y;
+	if (!miniDrag.moved && Math.hypot(dx, dy) < 4) return; // a click, not a drag (yet)
+	miniDrag.moved = true;
+	miniEl.classList.add('panning');
+	mini.follow = false;
+	mini.cx = miniDrag.cx - dx / r.width * mini.span;
+	mini.cz = miniDrag.cz + dy / r.height * mini.span;
+	redrawMini();
+});
+miniEl.addEventListener('pointerleave', () => { if (!miniDrag) document.getElementById('miniXY').textContent = ''; });
+function endMiniDrag(e, pick) {
+	if (!miniDrag || e.pointerId !== miniDrag.id) return;
+	const moved = miniDrag.moved;
+	miniDrag = null;
+	miniEl.classList.remove('panning');
+	if (moved || !pick) return;
+	// A click: pick that spot to teleport to.
+	const at = miniAt(e);
+	tpPick = [at.x, at.z];
+	document.getElementById('tpX').value = Math.round(at.x);
+	document.getElementById('tpZ').value = Math.round(at.z);
 	document.getElementById('tpTo').value = '';
 	renderPlayer();
-});
+}
+miniEl.addEventListener('pointerup', e => endMiniDrag(e, true));
+miniEl.addEventListener('pointercancel', e => endMiniDrag(e, false));
+// The wheel: 100 m per notch (a trackpad's small steps add up to notches).
+let miniWheel = 0;
+miniEl.addEventListener('wheel', e => {
+	e.preventDefault();
+	miniWheel += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+	const notches = Math.trunc(miniWheel / 100) || (Math.abs(e.deltaY) >= 50 && e.deltaMode === 0 ? Math.sign(e.deltaY) : 0);
+	if (!notches) return;
+	miniWheel = 0;
+	const span = Math.max(100, Math.min(miniMax(), mini.span + 100 * notches));
+	if (span === mini.span) return;
+	if (!mini.follow) {
+		// Zoom around the point under the pointer, so it stays put.
+		const at = miniAt(e);
+		mini.cx = at.x - (at.fx - 0.5) * span;
+		mini.cz = at.z + (at.fy - 0.5) * span;
+	}
+	mini.span = span;
+	redrawMini();
+}, { passive: false });
+document.getElementById('miniFollow').addEventListener('click', () => { mini.follow = true; mini.span = 100; redrawMini(); });
 
 function showForm(name) {
 	for (const [f, b] of [['Message', 'bMessage']]) {

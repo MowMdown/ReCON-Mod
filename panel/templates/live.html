@@ -138,6 +138,33 @@ table.dt a { color: #8ab4f8; text-decoration: none; cursor: pointer; }
 .dfoot { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; gap: 10px; }
 .dfoot button { margin: 0; }
 .dlg-err { color: #f28b82; font-size: 13px; min-height: 1.2em; margin-top: 8px; }
+/* The player dialog's tabs: Stats, and Inventory & items */
+.ptabs { display: flex; gap: 2px; border-bottom: 1px solid #444; margin: 4px 0 14px; }
+.ptabs button { margin: 0 0 -1px; padding: 7px 14px; font-size: 13px; color: #aaa; background: none; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; cursor: pointer; }
+.ptabs button:hover { color: #eee; }
+.ptabs button.on { color: #eee; background: #222; border-color: #444; border-bottom: 1px solid #222; }
+.ppane[hidden] { display: none; }
+/* The player dialog: 1290 x 1025 (smaller on small screens), the same size
+   on both tabs; a tab scrolls inside it when it needs more room. */
+.box.pbox { width: min(1290px, 96vw); height: min(1025px, 92vh); display: flex; flex-direction: column; margin-bottom: 0; }
+.pbox .ppane { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.pbox .dfoot { margin-top: auto; padding-top: 10px; }
+.pbox .statgrid { grid-template-columns: minmax(0, 1fr) 390px; }
+.pbox #mini { width: 390px; height: 390px; }
+.pbox .splist { max-height: 420px; }
+/* The stats fill the height beside the mini-map: taller bars, more room. */
+.pbox .bars { gap: 25px; padding-top: 4px; }
+.pbox .bar { grid-template-columns: 84px minmax(0, 1fr) 150px; font-size: 14.5px; }
+.pbox .track { height: 14px; border-radius: 7px; }
+.pbox .track .fill { border-radius: 6px; }
+.pbox .track .mark, .pbox .track .cap { top: -3px; height: 18px; }
+.pbox .track .handle { width: 18px; height: 18px; margin: -9px 0 0 -9px; }
+.pbox .track .tip { bottom: 20px; }
+.pbox .draghint { margin-top: 12px; }
+.pbox .chips { margin-top: 16px; }
+@media (max-width: 900px) { .pbox .statgrid { grid-template-columns: minmax(0, 1fr); } .pbox #mini { width: 100%; height: auto; aspect-ratio: 1; } }
+.ppane > h4:first-child { margin-top: 0; }
+html[data-theme]:not([data-theme="default"]) .ptabs { border-color: var(--color-divider); }
 /* Inventory: the slots on the left, the item picked on the right */
 .inv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px; align-items: start; }
 @media (max-width: 700px) { .inv { grid-template-columns: minmax(0, 1fr); } }
@@ -209,12 +236,17 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 
 <!-- A player's live stats and actions -->
 <div id="pModal" class="modal">
-	<div class="box wide" role="dialog" aria-labelledby="pName">
+	<div class="box wide pbox" role="dialog" aria-labelledby="pName">
 		<div class="dlg-head">
 			<h2 id="pName">Player</h2><span class="badge" id="pBadge"></span><span class="sub" id="pGuid"></span>
 			<div class="nav"><button type="button" onclick="stepPlayer(-1)">‹ Prev</button><button type="button" onclick="stepPlayer(1)">Next ›</button></div>
 		</div>
 		<div class="liveline"><span id="pWhen"></span><span class="pos" id="pPos"></span></div>
+		<div class="ptabs" id="pTabs" role="tablist">
+			<button type="button" role="tab" data-ptab="stats">Stats</button>
+			<button type="button" role="tab" data-ptab="items">Inventory &amp; items</button>
+		</div>
+		<div class="ppane" data-ppane="stats">
 		<div class="statgrid">
 			<div>
 				<div class="bars" id="pBars"></div>
@@ -231,7 +263,6 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 		<div class="acts">
 			<button type="button" class="go" onclick="act('heal')">Heal</button>
 			<button type="button" id="bMessage" onclick="showForm('message')">Message…</button>
-			<button type="button" id="bSpawn" onclick="showForm('spawn')">Spawn item…</button>
 			<span class="sp"></span>
 			<button type="button" class="bad" onclick="killPlayer()">Kill</button>
 		</div>
@@ -246,21 +277,25 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 			<input id="msgText" class="grow" maxlength="500" placeholder="Message, shown on their screen" aria-label="Message">
 			<button type="button" class="go" onclick="doMessage()">Send</button><button type="button" onclick="showForm('')">Cancel</button>
 		</div>
-		<div class="form stats" id="fSpawn" hidden>
+		<h4>Kills and deaths</h4>
+		<table class="dt"><tbody id="pKills"></tbody></table>
+		</div>
+		<div class="ppane" data-ppane="items" hidden>
+		<h4>Inventory <span class="muted" id="invWhen"></span></h4>
+		<div class="inv"><div class="ilist" id="iList"></div><div class="idet" id="iDet"></div></div>
+		<h4>Spawn an item <span class="muted">on the ground in front of them</span></h4>
+		<div class="form stats" id="fSpawn">
 			<div class="inl"><input id="spFind" class="grow" type="search" placeholder="Find an item by name or class" aria-label="Find an item" autocomplete="off">
 				<select id="spKind" aria-label="Kind"><option value="">Everything</option><option value="weapon">Weapons</option><option value="magazine">Magazines</option>
 					<option value="ammo">Ammo</option><option value="clothing">Clothing</option><option value="item">Other items</option></select></div>
 			<div class="splist" id="spList"></div>
 			<div class="setfoot"><span class="muted" id="spPick"></span><span class="grow"></span>
 				<span>Count</span><input id="spCount" type="number" min="1" max="20" value="1" style="width:64px" aria-label="How many">
-				<button type="button" class="go" onclick="doSpawn()">Spawn</button><button type="button" onclick="showForm('')">Cancel</button></div>
+				<button type="button" class="go" onclick="doSpawn()">Spawn</button></div>
+		</div>
 		</div>
 		<div class="dlg-err" id="pErr"></div>
 		<div class="lastact" id="pLast"></div>
-		<h4>Inventory <span class="muted" id="invWhen"></span></h4>
-		<div class="inv"><div class="ilist" id="iList"></div><div class="idet" id="iDet"></div></div>
-		<h4>Kills and deaths</h4>
-		<table class="dt"><tbody id="pKills"></tbody></table>
 		<div class="dfoot"><button type="button" onclick="openInPlayers()">Open in Players</button><button type="button" onclick="closePlayer()">Close</button></div>
 	</div>
 </div>
@@ -549,6 +584,7 @@ function openPlayer(guid) {
 	invSel = null;
 	invAsked = Date.now();
 	showForm('');
+	showPTab(pTab);
 	document.getElementById('pErr').textContent = '';
 	document.getElementById('pModal').style.display = 'flex';
 	const p = byGuid[guid];
@@ -956,14 +992,32 @@ document.getElementById('mini').addEventListener('click', e => {
 });
 
 function showForm(name) {
-	for (const [f, b] of [['Message', 'bMessage'], ['Spawn', 'bSpawn']]) {
+	for (const [f, b] of [['Message', 'bMessage']]) {
 		const on = f.toLowerCase() === name;
 		document.getElementById('f' + f).hidden = !on;
 		document.getElementById(b).classList.toggle('on', on);
 	}
 	if (name === 'message') document.getElementById('msgText').focus();
-	if (name === 'spawn') { loadItems(); document.getElementById('spFind').focus(); }
 }
+
+// ---- The dialog's tabs: Stats, and Inventory & items ---------------------
+
+// pTab stays as it is from one player to the next (Prev / Next).
+let pTab = 'stats';
+function showPTab(name) {
+	pTab = name;
+	document.querySelectorAll('#pTabs button').forEach(b => {
+		const on = b.dataset.ptab === name;
+		b.classList.toggle('on', on);
+		b.setAttribute('aria-selected', on);
+	});
+	document.querySelectorAll('#pModal .ppane').forEach(p => p.hidden = p.dataset.ppane !== name);
+	if (name === 'items') loadItems();
+}
+document.getElementById('pTabs').addEventListener('click', e => {
+	const b = e.target.closest('[data-ptab]');
+	if (b) showPTab(b.dataset.ptab);
+});
 
 // ---- Spawn item: every item the server has loaded, on the ground --------
 
@@ -980,8 +1034,8 @@ async function loadItems() {
 		}
 	} catch (e) { }
 	renderItems();
-	// Still coming in from the mod: look again while the panel is open.
-	if (!catalog) setTimeout(() => { if (!document.getElementById('fSpawn').hidden) loadItems(); }, 2000);
+	// Still coming in from the mod: look again while the tab is open.
+	if (!catalog) setTimeout(() => { if (pTab === 'items' && document.getElementById('pModal').style.display === 'flex') loadItems(); }, 2000);
 }
 function renderItems() {
 	const list = document.getElementById('spList');

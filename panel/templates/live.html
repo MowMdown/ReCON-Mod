@@ -74,7 +74,9 @@
 .track .fill { height: 100%; border-radius: 4px; }
 .track.temp { background: linear-gradient(90deg, #1e4f7a, #1a1a1a 35%, #1a1a1a 65%, #7a2b1e); }
 .track .mark { position: absolute; top: -2px; width: 3px; height: 13px; border-radius: 2px; }
-.track .cap { position: absolute; top: -2px; width: 2px; height: 13px; background: #888; }
+/* A limit on the bar (stamina's load cap, comfort's clothing cap): a thick
+   light tick standing out above and below the bar. */
+.track .cap { position: absolute; top: -4px; width: 4px; height: 17px; margin-left: -2px; background: #f0f0f0; border-radius: 2px; box-shadow: 0 0 0 1.5px #111; z-index: 1; }
 .blink .fill, .blink .v, .blink .mark { animation: hudblink 1s steps(2, start) infinite; }
 /* Draggable bars (health, blood, water, food, comfort): a handle on hover;
    while dragging, the new level striped with its value above the handle. */
@@ -155,9 +157,10 @@ table.dt a { color: #8ab4f8; text-decoration: none; cursor: pointer; }
 /* The stats fill the height beside the mini-map: taller bars, more room. */
 .pbox .bars { gap: 25px; padding-top: 4px; }
 .pbox .bar { grid-template-columns: 84px minmax(0, 1fr) 150px; font-size: 14.5px; }
-.pbox .track { height: 14px; border-radius: 7px; }
+.pbox .track { height: 14px; border-radius: 7px; overflow: visible; }
 .pbox .track .fill { border-radius: 6px; }
-.pbox .track .mark, .pbox .track .cap { top: -3px; height: 18px; }
+.pbox .track .mark { top: -3px; height: 18px; }
+.pbox .track .cap { top: -6px; height: 24px; width: 5px; margin-left: -2.5px; }
 .pbox .track .handle { width: 18px; height: 18px; margin: -9px 0 0 -9px; }
 .pbox .track .tip { bottom: 20px; }
 .pbox .draghint { margin-top: 12px; }

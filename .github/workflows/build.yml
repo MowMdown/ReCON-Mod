@@ -1,6 +1,10 @@
 # Builds @ReCON (addons/ReCON.pbo, mod.cpp, LICENSE, NOTICE) on every push
 # and pull request, and tests the panel. Download it from the run's
 # Artifacts. Pushing a tag such as v0.1.0 also publishes it as a release.
+#
+# Or run it by hand (Actions -> Build the mod -> Run workflow) with a tag
+# and a commit: it builds that commit and publishes a pre-release with that
+# tag on it, ReCON-Mod.zip attached. GitHub makes the tag.
 name: Build the mod
 
 on:
@@ -8,6 +12,14 @@ on:
     branches: ["**"]
     tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create, such as v0.0.1-a978cde0"
+        required: true
+      commit:
+        description: "The commit to build and tag (default: the branch run on)"
+        required: false
 
 permissions:
   contents: write
@@ -17,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit || github.sha }}
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -43,3 +57,12 @@ jobs:
             gh release create "$GITHUB_REF_NAME" ReCON-Mod.zip --title "$GITHUB_REF_NAME" --verify-tag \
               --notes "The @ReCON mod folder. Not for monetized servers, see NOTICE."
           fi
+      - name: Release (run by hand)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          case "$TAG" in v*) ;; *) echo "The tag must start with v"; exit 1 ;; esac
+          gh release create "$TAG" ReCON-Mod.zip --target "$(git rev-parse HEAD)" --prerelease --title "$TAG" \
+            --notes "The @ReCON mod folder, built from $(git rev-parse --short=8 HEAD). Not for monetized servers, see NOTICE."

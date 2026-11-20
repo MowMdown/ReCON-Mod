@@ -53,7 +53,10 @@ class ReCON_Config
 	{
 		string pw = password.Trim();
 		if (pw != "")
+		{
+			ReCON_Log.Info("using the RCON password from " + FILE + " (" + pw.Length() + " characters)");
 			return pw;
+		}
 		array<string> dirs = new array<string>();
 		if (battlEyePath.Trim() != "")
 			dirs.Insert(battlEyePath.Trim());
@@ -69,7 +72,7 @@ class ReCON_Config
 			pw = PasswordIn(dir);
 			if (pw != "")
 			{
-				ReCON_Log.Info("using the RCON password from BattlEye's config in " + dir);
+				ReCON_Log.Info("using the RCON password from BattlEye's config in " + dir + " (" + pw.Length() + " characters; " + FILE + " has none)");
 				return pw;
 			}
 		}

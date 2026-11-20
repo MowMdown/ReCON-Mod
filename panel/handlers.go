@@ -3,6 +3,7 @@ package panel
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -16,8 +17,19 @@ import (
 // so the mod can log why.
 func handleModSync(w http.ResponseWriter, r *http.Request) {
 	var req SyncRequest
-	if err := decodeBody(w, r, &req, 4<<20); err != nil {
-		writeJSON(w, http.StatusBadRequest, SyncReply{Error: "bad JSON", Commands: []Command{}})
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4<<20))
+	if err == nil {
+		err = json.Unmarshal(body, &req)
+	}
+	if err != nil {
+		// Logged (once per different error), as the sync isn't otherwise:
+		// the start of what the mod sent shows what ReCON couldn't read.
+		start := string(body)
+		if len(start) > 300 {
+			start = start[:300] + "..."
+		}
+		logRefusalKeyed("read: "+err.Error(), fmt.Sprintf("couldn't read what %s sent (%v): %s", r.RemoteAddr, err, start))
+		writeJSON(w, http.StatusBadRequest, SyncReply{Error: "ReCON couldn't read the data: " + err.Error(), Commands: []Command{}})
 		return
 	}
 	reply, err := Sync(req, time.Now())

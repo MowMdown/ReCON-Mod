@@ -18,6 +18,7 @@ class ReCON_Module : CF_ModuleWorld
 	protected float m_InFlightFor;  // seconds
 	protected int m_IntervalMs;
 	protected bool m_LastFailed;
+	protected string m_LastWhy; // the last failure logged, so a new reason is logged too
 
 	// Events and command results waiting for the next sync; the ones in
 	// the request in flight are kept until ReCON answers, then dropped (or
@@ -96,8 +97,7 @@ class ReCON_Module : CF_ModuleWorld
 			m_InFlightFor += dt;
 			if (m_InFlightFor < 15)
 				return;
-			ReCON_Log.Info("no answer from ReCON in 15 s; sending again");
-			OnFailed();
+			OnFailed("no answer from ReCON at " + m_Config.url + " in 15 s");
 		}
 		m_SinceSync += dt;
 		if (m_SinceSync * 1000 < m_IntervalMs)
@@ -170,21 +170,21 @@ class ReCON_Module : CF_ModuleWorld
 		string err;
 		if (!m_Json.ReadFromString(reply, data, err))
 		{
-			ReCON_Log.Info("ReCON's answer isn't valid JSON: " + err);
-			OnFailed();
+			int shown = data.Length();
+			if (shown > 200)
+				shown = 200;
+			OnFailed("ReCON's answer isn't valid JSON (" + err + "): " + data.Substring(0, shown));
 			return;
 		}
 		if (!reply.ok)
 		{
-			if (!m_LastFailed)
-				ReCON_Log.Info("ReCON refused the data: " + reply.error);
-			m_LastFailed = true;
-			KeepUnsent();
+			OnFailed("ReCON refused the data: " + reply.error);
 			return;
 		}
 		if (m_LastFailed)
 			ReCON_Log.Info("ReCON is getting the data again");
 		m_LastFailed = false;
+		m_LastWhy = "";
 		m_SentEvents.Clear();
 		m_SentResults.Clear();
 		if (reply.interval >= 250)
@@ -196,13 +196,43 @@ class ReCON_Module : CF_ModuleWorld
 		}
 	}
 
-	void OnFailed()
+	// OnFailed logs why a sync failed (once, until the reason changes or a
+	// sync works again) and keeps what it carried for the next one.
+	void OnFailed(string why)
 	{
 		m_InFlight = false;
-		if (!m_LastFailed)
-			ReCON_Log.Info("can't reach ReCON at " + m_Config.url + "; trying again every " + m_IntervalMs + " ms");
+		if (why != m_LastWhy)
+			ReCON_Log.Info(why + "; trying again every " + m_IntervalMs + " ms");
 		m_LastFailed = true;
+		m_LastWhy = why;
 		KeepUnsent();
+	}
+
+	// OnRestError: DayZ's REST API reports an HTTP error answer (ReCON
+	// refusing the data) the same way as no answer at all, as an
+	// ERestResultState; name it so the log tells them apart.
+	void OnRestError(int code)
+	{
+		string what = "error " + code.ToString();
+		switch (code)
+		{
+			case ERestResultState.EREST_ERROR:
+				what = "the request failed (EREST_ERROR): either nothing answered at that address and port, or ReCON refused the data (then ReCON's log says why)";
+				break;
+			case ERestResultState.EREST_ERROR_CLIENTERROR:
+				what = "ReCON answered with an error (EREST_ERROR_CLIENTERROR): wrong password, or it couldn't read the data; ReCON's log says which";
+				break;
+			case ERestResultState.EREST_ERROR_SERVERERROR:
+				what = "the address answered with a server error (EREST_ERROR_SERVERERROR): is it ReCON, or a proxy in front of it?";
+				break;
+			case ERestResultState.EREST_ERROR_APPERROR:
+				what = "EREST_ERROR_APPERROR";
+				break;
+			case ERestResultState.EREST_ERROR_TIMEOUT:
+				what = "no answer in time (EREST_ERROR_TIMEOUT)";
+				break;
+		}
+		OnFailed("can't sync with ReCON at " + m_Config.url + ": " + what);
 	}
 
 	// KeepUnsent puts what the failed request carried back in the queues.
@@ -299,11 +329,11 @@ class ReCON_Callback : RestCallback
 
 	override void OnError(int errorCode)
 	{
-		m_Module.OnFailed();
+		m_Module.OnRestError(errorCode);
 	}
 
 	override void OnTimeout()
 	{
-		m_Module.OnFailed();
+		m_Module.OnFailed("no answer from ReCON in time (timeout)");
 	}
 };

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"io/fs"
 )
@@ -95,4 +96,32 @@ func startTest(t *testing.T, password string) (*http.ServeMux, func(*http.Reques
 	}
 	t.Cleanup(func() { keySource = func() string { return "" } })
 	return mux, quiet
+}
+
+// DayZ may write true/false as 1/0: both read. A sync ReCON can't read is
+// answered with the reason.
+func TestSyncFlagsAndBadJSON(t *testing.T) {
+	setup(t)
+	openTestDB(t)
+	mux, _ := startTest(t, "secret")
+	post := func(body string) (int, map[string]any) {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/mod/sync", strings.NewReader(body)))
+		var out map[string]any
+		json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	code, out := post(`{"v":1,"key":"secret","world":"enoch","weather":{"timeFrozen":1},
+		"players":[{"steamId":"76561198000000001","name":"a","alive":1,"unconscious":0,"restrained":false}],
+		"results":[{"id":1,"ok":1,"error":""}]}`)
+	if code != 200 || out["ok"] != true {
+		t.Fatalf("1/0 flags: %d %v", code, out)
+	}
+	if p, ok := PlayerOf(battlEyeGUID(76561198000000001), time.Now()); !ok || !bool(p.Alive) || bool(p.Unconscious) {
+		t.Errorf("player %+v", p)
+	}
+	code, out = post(`{"v":1,"key":"secret","players":[{"alive":"maybe"}]}`)
+	if code != http.StatusBadRequest || !strings.Contains(out["error"].(string), "couldn't read") {
+		t.Errorf("bad JSON: %d %v", code, out)
+	}
 }

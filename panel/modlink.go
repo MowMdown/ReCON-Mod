@@ -16,6 +16,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log"
 	"sort"
 	"strconv"
@@ -63,7 +64,7 @@ type PlayerState struct {
 	Y       float64 `json:"y"`
 	Z       float64 `json:"z"`
 	Heading float64 `json:"heading"`
-	Alive   bool    `json:"alive"`
+	Alive   Flag    `json:"alive"`
 	Health  float64 `json:"health"`
 	Blood   float64 `json:"blood"`
 	Shock   float64 `json:"shock"`
@@ -80,8 +81,8 @@ type PlayerState struct {
 	Bleeding        int     `json:"bleeding"`
 	Agents          int     `json:"agents"`
 	BrokenLegs      int     `json:"brokenLegs"`
-	Unconscious     bool    `json:"unconscious"`
-	Restrained      bool    `json:"restrained"`
+	Unconscious     Flag    `json:"unconscious"`
+	Restrained      Flag    `json:"restrained"`
 	Hands           string  `json:"hands"`
 	Vehicle         string  `json:"vehicle"`
 	Kills           int     `json:"kills"`
@@ -103,7 +104,7 @@ type World struct {
 	WindSpeedTarget float64 `json:"windSpeedTarget"`
 	WindDirTarget   float64 `json:"windDirTarget"`
 	Mode            string  `json:"mode"` // world, forecast or static
-	TimeFrozen      bool    `json:"timeFrozen"`
+	TimeFrozen      Flag    `json:"timeFrozen"`
 }
 
 // Event is something that happened between syncs (ReCON_Event).
@@ -124,7 +125,7 @@ type Event struct {
 // Result is how a command went (ReCON_Result).
 type Result struct {
 	ID    int    `json:"id"`
-	OK    bool   `json:"ok"`
+	OK    Flag   `json:"ok"`
 	Error string `json:"error"`
 }
 
@@ -209,7 +210,9 @@ var ErrRefused = errors.New("wrong RCON password: set the mod's \"password\" to 
 func Sync(req SyncRequest, now time.Time) (SyncReply, error) {
 	want := keySource()
 	if want == "" || subtle.ConstantTimeCompare([]byte(req.Key), []byte(want)) != 1 {
-		logRefusal(ErrRefused.Error())
+		// The lengths (never the passwords) tell a typo from a different password.
+		logRefusalKeyed(ErrRefused.Error(), fmt.Sprintf("%s (the mod sent a password of %d characters; ReCON's has %d)",
+			ErrRefused.Error(), len(req.Key), len(want)))
 		return SyncReply{Error: ErrRefused.Error()}, ErrRefused
 	}
 	if req.V != Protocol {
@@ -298,12 +301,16 @@ func Sync(req SyncRequest, now time.Time) (SyncReply, error) {
 	return reply, nil
 }
 
-func logRefusal(msg string) {
+// logRefusal logs why a sync was refused, once until the reason (key)
+// changes or a sync is accepted.
+func logRefusal(msg string) { logRefusalKeyed(msg, msg) }
+
+func logRefusalKeyed(key, msg string) {
 	state.Lock()
 	defer state.Unlock()
-	if state.refused != msg {
-		state.refused = msg
-		log.Printf("recon-mod: refused a sync from recon-mod: %s", msg)
+	if state.refused != key {
+		state.refused = key
+		log.Printf("recon-mod: refused a sync from the mod: %s", msg)
 	}
 }
 
@@ -565,4 +572,21 @@ func battlEyeGUID(id uint64) string {
 	binary.LittleEndian.PutUint64(b[2:], id)
 	sum := md5.Sum(b)
 	return hex.EncodeToString(sum[:])
+}
+
+// Flag is a true/false the mod sends. DayZ's JSON writer may write it as
+// true/false or as 1/0; both read. It is written back as true/false.
+type Flag bool
+
+// UnmarshalJSON reads true, false, 1, 0 (or "true", "1"...).
+func (f *Flag) UnmarshalJSON(b []byte) error {
+	switch strings.Trim(strings.TrimSpace(string(b)), `"`) {
+	case "true", "1":
+		*f = true
+	case "false", "0", "", "null":
+		*f = false
+	default:
+		return fmt.Errorf("not a true/false: %s", b)
+	}
+	return nil
 }

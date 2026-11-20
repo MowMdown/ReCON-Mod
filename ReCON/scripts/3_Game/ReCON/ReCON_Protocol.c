@@ -37,6 +37,10 @@ class ReCON_PlayerState
 	float water;     // 0-5000
 	float energy;    // 0-5000 (food)
 	float heat;      // heat comfort, -1 (freezing) .. 1 (overheating)
+	float heatBuffer;    // the heat buff ("comfort"), 0 (none) .. heatBufferMax
+	float heatBufferMax;
+	float heatBufferCap; // how much of it their clothes allow, 0.35 .. 1
+	int heatBufferStage; // the HUD's buff icon: 0 none, 1-3
 	int wet;         // 0 dry, 1 wet
 	float stamina;
 	int bleeding;    // open wounds

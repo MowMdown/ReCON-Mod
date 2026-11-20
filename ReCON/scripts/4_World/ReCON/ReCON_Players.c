@@ -27,6 +27,13 @@ class ReCON_Players
 			s.energy = p.GetStatEnergy().Get();
 		if (p.GetStatHeatComfort())
 			s.heat = p.GetStatHeatComfort().Get();
+		if (p.GetStatHeatBuffer())
+		{
+			s.heatBuffer = Math.Max(0, p.GetStatHeatBuffer().Get());
+			s.heatBufferMax = p.GetStatHeatBuffer().GetMax();
+		}
+		s.heatBufferCap = p.GetHeatBufferDynamicMax();
+		s.heatBufferStage = p.GetHeatBufferStage();
 		if (p.GetStatWet())
 			s.wet = p.GetStatWet().Get();
 		if (p.GetStatStamina())

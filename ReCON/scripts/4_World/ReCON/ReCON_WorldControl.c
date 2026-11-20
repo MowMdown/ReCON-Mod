@@ -16,6 +16,12 @@ class ReCON_WorldControl
 {
 	protected static bool s_TimeFrozen;
 	protected static string s_Mode = "world";
+	// How the map and mission set the weather up at start (read before the
+	// first mode change), so "world" puts it back exactly: until a mode is
+	// picked, the mod leaves the weather alone.
+	protected static bool s_StartRead;
+	protected static bool s_StartMission;
+	protected static bool s_StartFrozen;
 
 	static void Read(ReCON_World w)
 	{
@@ -123,17 +129,24 @@ class ReCON_WorldControl
 		return "unknown weather " + part;
 	}
 
-	// SetMode: world follows the map's weather rules (what was set holds for
-	// its hold, then the map takes over); forecast keeps what was set until
+	// SetMode: world is the map's own weather, as the server started with it
+	// (what was set holds for its hold, then the map takes over); forecast keeps what was set until
 	// it is set again; static also stops what is changing now, where it is.
 	// Both of the last two block the engine's own changes (see the top).
 	protected static string SetMode(Weather weather, string mode)
 	{
+		if (!s_StartRead)
+		{
+			s_StartRead = true;
+			s_StartMission = weather.GetMissionWeather();
+			s_StartFrozen = weather.GetWeatherUpdateFrozen();
+		}
 		switch (mode)
 		{
 			case "world":
-				weather.MissionWeather(false);
-				weather.SetWeatherUpdateFreeze(false);
+				// Back to the map's (and the mission's) own settings, as at start.
+				weather.MissionWeather(s_StartMission);
+				weather.SetWeatherUpdateFreeze(s_StartFrozen);
 				break;
 			case "forecast":
 				weather.MissionWeather(false); // mission weather would let the engine change it

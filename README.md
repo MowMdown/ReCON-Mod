@@ -16,6 +16,8 @@ and ReCON's side of it (the Live Map page and the API the mod talks to).
 |---|---|
 | `ReCON/` | The DayZ mod (Enforce script, built on CF), packed into `@ReCON/addons/ReCON.pbo` |
 | `panel/` | A Go package ReCON builds in on request: the Live Map page (`templates/live.html`), the API, the command queue and the kills table |
+| `cmd/pbo/`, `pbo/` | The packer that builds `@ReCON/addons/ReCON.pbo` (see Build) |
+| `.github/workflows/build.yml` | Builds and tests on every push; a `v*` tag publishes a release |
 
 The mod, on the DayZ server, sends ReCON every second every online player's live state: position,
 health, blood, shock, food, water, heat, wetness, bleeding, illnesses,
@@ -36,19 +38,42 @@ on the world (weather, the in-game date and time).
 
 ## Build
 
-The mod is the `ReCON` folder. Pack it into a PBO with the prefix `ReCON`,
-using DayZ Tools' Addon Builder, PBO Manager or `mikero`'s pboProject, so
-that you end up with:
+The mod is the `ReCON` folder: scripts and a plain-text `config.cpp`, packed
+into a PBO with the prefix `ReCON`. It needs no binarizing, so any of these
+work:
 
-```
-@ReCON/
-  addons/
-    ReCON.pbo
-```
+- **Download it.** Every push builds it on GitHub: open the repository's
+  **Actions** tab, the latest **Build the mod** run, and download **@ReCON**
+  under Artifacts. A tag such as `v0.1.0` also publishes `ReCON-Mod.zip` as a
+  release.
+- **This repository's packer**, on Windows, macOS or Linux, with
+  [Go](https://go.dev/dl/) installed:
+
+  ```bash
+  go run ./cmd/pbo
+  ```
+
+  It writes the mod folder:
+
+  ```
+  @ReCON/
+    addons/
+      ReCON.pbo
+    mod.cpp
+    LICENSE
+    NOTICE
+  ```
+
+- **DayZ Tools** (free on Steam, Windows): open **Addon Builder**, set the
+  source to this repository's `ReCON` folder and the destination to
+  `@ReCON\addons`, set **Addon prefix** to `ReCON`, leave
+  **Binarize** off and **Sign** off (a server-side mod needs no keys), and
+  click **Pack**. PBO Manager (Pack, with the prefix set to `ReCON`) works
+  too.
 
 ## Install
 
-1. Put `@ReCON` in the server folder, next to `@CF`.
+1. Put the `@ReCON` folder in the server folder, next to `@CF`.
 2. Add it to the server's command line after CF:
    `-servermod=@CF;@ReCON` (or keep CF in `-mod=` if the players load it).
 3. Start the server once. The mod writes `ReCON/ReCON.json` in the server's

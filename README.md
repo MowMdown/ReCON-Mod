@@ -141,7 +141,7 @@ that ReCON didn't get, because it was down or refused them, are sent again.
 | `kill` | — |
 | `teleport` | `x`, `z`, and `y` (0 = ground level). |
 | `teleportTo` | `target`: the SteamID64 of the player to go to. |
-| `set` | `stat` (`health`, `blood`, `shock`, `water`, `energy`, `stamina` or `heatBuffer`) and `value`. |
+| `set` | `stat` (`health`, `blood`, `water`, `energy` or `heatBuffer`) and `value`. Shock, stamina and temperature are read only. |
 | `message` | `text`, plus optional `title` and `seconds`. Shown as an in-game notification. |
 
 World actions, modelled on Community Online Tools' weather module:
@@ -174,14 +174,16 @@ The **Live Map** page (`/live`, in the nav after Server Info):
   terrain under it, put a picture of the whole map (square, north up) in
   ReCON's data folder as `maps/<world>.jpg` (or `.png`, `.webp`), such as
   `maps/chernarusplus.jpg`. Above it: the weather and the in-game time.
-- **Clicking a player** opens their stats: health, blood, water and food in
+- **Clicking a player** opens their stats. Drag Health, Blood, Water, Food or
+  Comfort left or right to set it (shock, stamina and temperature are read
+  only). They show health, blood, water and food in
   DayZ's HUD colours (white, yellow, red, blinking red at the same
   thresholds as the game), shock, stamina, temperature (the game's hot and
   cold colours) and comfort (the heat buff, with its +/++/+++ stage and the
   most their clothes allow), conditions, a mini-map of the 1 km around them,
   what's in hand, vehicle, kills and deaths, and the actions: Heal,
-  Teleport (to a spot, a mini-map click or another player), Set stat,
-  Message and Kill. Each action's result shows below them.
+  Teleport (to a spot, a mini-map click or another player), Message and
+  Kill. Each action's result shows below them.
 - **World…** sets the in-game date and time, freezes the clock, and sets the
   weather: overcast, rain, fog, snow, wind speed and direction, and
   lightning, with presets (Clear, Cloudy, Rain, Thunderstorm, Fog, Snow),
@@ -204,7 +206,7 @@ ReCON stores every death the mod reports (its own `mod_kills` table) and the Ste
 | POST | `/api/mod/players/<guid>/<action>` | see below | Queue an action. The mod runs it on its next sync; its `status` (`queued`, `sent`, `done`, `failed`, `expired`) shows in the commands |
 | POST | `/api/mod/world/<action>` | see below | Queue a weather or time change, the same way |
 
-Actions: `heal` (full health, blood, shock, food and water; stops bleeding, cures illnesses, mends broken legs), `kill`, `teleport` `{"x", "z", "y"}` (`y` 0 = ground level), `teleportTo` `{"target": "<guid>"}`, `set` `{"stat": "health|blood|shock|water|energy|stamina|heatBuffer", "value"}`, `message` `{"text", "title", "seconds"}`. A command the mod hasn't answered within 30 seconds expires.
+Actions: `heal` (full health, blood, shock, food and water; stops bleeding, cures illnesses, mends broken legs), `kill`, `teleport` `{"x", "z", "y"}` (`y` 0 = ground level), `teleportTo` `{"target": "<guid>"}`, `set` `{"stat": "health|blood|water|energy|heatBuffer", "value"}` (shock, stamina and temperature are read only), `message` `{"text", "title", "seconds"}`. A command the mod hasn't answered within 30 seconds expires.
 
 World actions, modelled on Community Online Tools' weather module (`mod.weather` in `/api/mod/players` shows the weather now and where it is heading):
 

@@ -43,7 +43,9 @@
 .mapbar > * { pointer-events: auto; }
 .mapbar .badge { font-size: 12px; background: rgba(20,20,20,.85); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; color: #ccc; }
 .mapbar .sp { flex: 1; }
-.mapbar button { margin: 0; background: rgba(34,34,34,.92); }
+.mapbar button { margin: 0; background: rgba(34,34,34,.92); color: #ddd; border: 1px solid #555; }
+.mapbar button:hover { border-color: #8ab4f8; color: #fff; }
+.mapbar button:disabled { opacity: .45; }
 .gridlbl { color: #5d6a5f; font-size: 10px; white-space: nowrap; }
 .pmark svg { position: absolute; left: -9px; top: -9px; overflow: visible; cursor: pointer; }
 .pmark span { position: absolute; left: 11px; top: -8px; white-space: nowrap; font-size: 12px; color: #ddd; cursor: pointer; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 2px #000; }
@@ -65,7 +67,7 @@
 .statgrid { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; }
 @media (max-width: 700px) { .statgrid { grid-template-columns: minmax(0, 1fr); } }
 .bars { display: grid; gap: 9px; align-content: start; }
-.bar { display: grid; grid-template-columns: 70px minmax(0, 1fr) 112px; align-items: center; gap: 10px; font-size: 13px; }
+.bar { display: grid; grid-template-columns: 70px minmax(0, 1fr) 128px; align-items: center; gap: 10px; font-size: 13px; }
 .bar .k { color: #aaa; }
 .bar .v { text-align: right; font-variant-numeric: tabular-nums; }
 .track { height: 9px; background: #1a1a1a; border: 1px solid #333; border-radius: 5px; overflow: hidden; position: relative; }
@@ -74,6 +76,20 @@
 .track .mark { position: absolute; top: -2px; width: 3px; height: 13px; border-radius: 2px; }
 .track .cap { position: absolute; top: -2px; width: 2px; height: 13px; background: #888; }
 .blink .fill, .blink .v, .blink .mark { animation: hudblink 1s steps(2, start) infinite; }
+/* Draggable bars (health, blood, water, food, comfort): a handle on hover;
+   while dragging, the new level striped with its value above the handle. */
+.bar.can .track { cursor: ew-resize; touch-action: none; overflow: visible; }
+.bar.can .fill { border-radius: 4px; }
+.track .handle { display: none; position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #eee; box-shadow: 0 0 0 2px #111, 0 1px 4px #000a; pointer-events: none; }
+.bar.can:hover .handle, .bar.drag .handle { display: block; }
+.bar.can:hover .track { border-color: #555; }
+.bar.drag .track { border-color: #8ab4f8; }
+.bar.drag .handle { background: #8ab4f8; box-shadow: 0 0 0 2px #111, 0 0 0 5px rgba(138,180,248,.35); }
+.track .ghost { position: absolute; top: 0; height: 100%; border-radius: 4px; pointer-events: none; background: repeating-linear-gradient(45deg, rgba(138,180,248,.55) 0 4px, rgba(138,180,248,.25) 4px 8px); }
+.track .tip { position: absolute; bottom: 16px; transform: translateX(-50%); background: #111; border: 1px solid #8ab4f8; color: #eee; font-size: 12px; padding: 3px 8px; border-radius: 4px; white-space: nowrap; pointer-events: none; z-index: 2; }
+.bar .v .to { color: #8ab4f8; font-weight: 600; }
+.bar .v .pend { color: #fdd663; }
+.draghint { color: #888; font-size: 12px; margin-top: 2px; }
 @keyframes hudblink { to { visibility: hidden; } }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .chip { font-size: 12px; padding: 2px 9px; border-radius: 10px; border: 1px solid #444; color: #aaa; }
@@ -123,6 +139,7 @@ table.dt a { color: #8ab4f8; text-decoration: none; cursor: pointer; }
 .wrow .val { text-align: right; font-variant-numeric: tabular-nums; }
 .wrow .val.moved { color: #8ab4f8; }
 .wrow .now { color: #888; font-size: 12px; }
+.wnote { margin-top: 8px; font-size: 12.5px; color: #fdd663; line-height: 1.5; }
 html[data-theme]:not([data-theme="default"]) .prow, html[data-theme]:not([data-theme="default"]) .tile,
 html[data-theme]:not([data-theme="default"]) .form, html[data-theme]:not([data-theme="default"]) .mapwrap,
 html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-theme="default"]) .chip { border-color: var(--color-divider); }
@@ -174,7 +191,6 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 		<div class="acts">
 			<button type="button" class="go" onclick="act('heal')">Heal</button>
 			<button type="button" id="bTeleport" onclick="showForm('teleport')">Teleport…</button>
-			<button type="button" id="bSet" onclick="showForm('set')">Set stat…</button>
 			<button type="button" id="bMessage" onclick="showForm('message')">Message…</button>
 			<span class="sp"></span>
 			<button type="button" class="bad" onclick="killPlayer()">Kill</button>
@@ -184,14 +200,6 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 			<span class="muted">or click the mini-map</span>
 			<span class="muted">·</span> to player <select id="tpTo"></select>
 			<span class="grow"></span><button type="button" class="go" onclick="doTeleport()">Teleport</button><button type="button" onclick="showForm('')">Cancel</button>
-		</div>
-		<div class="form" id="fSet" hidden>
-			Set <select id="setStat">
-				<option value="health">Health (0-100)</option><option value="blood">Blood (0-5000)</option><option value="shock">Shock (0-100)</option>
-				<option value="water">Water (0-5000)</option><option value="energy">Food (0-5000)</option><option value="stamina">Stamina (0-100)</option>
-				<option value="heatBuffer">Comfort (0-30)</option>
-			</select> to <input id="setVal" size="6" inputmode="decimal" aria-label="Value">
-			<span class="grow"></span><button type="button" class="go" onclick="doSet()">Set</button><button type="button" onclick="showForm('')">Cancel</button>
 		</div>
 		<div class="form" id="fMessage" hidden>
 			<input id="msgText" class="grow" maxlength="500" placeholder="Message, shown on their screen" aria-label="Message">
@@ -219,6 +227,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 		<div class="wsec"><h3>Weather</h3>
 			<div class="inl">Weather follows <div class="seg" id="wMode">
 				<button type="button" data-mode="world">the map's rules</button><button type="button" data-mode="forecast">only what's set here</button><button type="button" data-mode="static">nothing (frozen)</button></div></div>
+			<div class="wnote" id="wModeNote" hidden></div>
 			<div class="presets" id="presets"></div>
 			<div id="wRows"></div>
 			<div class="inl" style="margin-top:12px">Change over <input id="wTrans" size="4" value="60" inputmode="numeric" aria-label="Seconds"> seconds, then hold for at least
@@ -255,6 +264,10 @@ function colorOf(guid) {
 }
 // Class names read better without underscores: "MountainBag_Blue" -> "MountainBag Blue".
 function item(s) { return s ? s.replace(/_/g, ' ') : ''; }
+// What's in their hands and the vehicle they're in, by the names the game
+// shows ("Wood Axe"); the class name when the mod didn't send one.
+function handsOf(p) { return p.handsName || item(p.hands); }
+function vehicleOf(p) { return p.vehicleName || item(p.vehicle); }
 
 // hud is DayZ's HUD colour for health, blood, food and water: white,
 // yellow, red, or red blinking (PlayerBase.GetStatLevel with
@@ -311,12 +324,14 @@ async function poll() {
 // the players on it.
 const SIZES = { chernarusplus: 15360, enoch: 12800, namalsk: 12800, deerisle: 16384, sakhal: 15360, esseker: 12800, takistanplus: 12800, banov: 15360, chiemsee: 10240, pripyat: 20480, rostow: 14336, iztek: 8192, alteria: 8192 };
 const NAMES = { chernarusplus: 'Chernarus', enoch: 'Livonia', namalsk: 'Namalsk', deerisle: 'Deer Isle', sakhal: 'Sakhal', esseker: 'Esseker', takistanplus: 'Takistan', banov: 'Banov', chiemsee: 'Chiemsee', pripyat: 'Pripyat', rostow: 'Rostow', iztek: 'Iztek', alteria: 'Alteria', nasdara: 'Nasdara' };
-let map, size = 0, world = '', gridLayer, imageLayer, markers = {}, fitted = false;
+let map, size = 0, world = '', gridLayer, labelLayer, imageLayer, markers = {}, fitted = false;
 
 function initMap() {
 	map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 3, zoomSnap: 0.25, attributionControl: false, zoomControl: false });
 	L.control.zoom({ position: 'bottomright' }).addTo(map);
 	gridLayer = L.layerGroup().addTo(map);
+	labelLayer = L.layerGroup().addTo(map);
+	map.on('moveend zoomend', drawLabels);
 	map.setView([7680, 7680], -5);
 }
 
@@ -337,14 +352,25 @@ function setWorld(w, s) {
 	for (let g = 0; g <= size; g += 1000) {
 		L.polyline([[0, g], [size, g]], line).addTo(gridLayer);
 		L.polyline([[g, 0], [g, size]], line).addTo(gridLayer);
-		if (g < size) {
-			L.marker([size, g], { interactive: false, keyboard: false, icon: L.divIcon({ className: 'gridlbl', html: pad(g / 100, 3), iconSize: null, iconAnchor: [-3, -2] }) }).addTo(gridLayer);
-			if (g && g < size - 500) L.marker([g, 0], { interactive: false, keyboard: false, icon: L.divIcon({ className: 'gridlbl', html: pad(g / 100, 3), iconSize: null, iconAnchor: [-3, 13] }) }).addTo(gridLayer);
-		}
 	}
 	L.polyline([[0, 0], [0, size], [size, size], [size, 0], [0, 0]], { color: '#4a5a4d', weight: 1, interactive: false }).addTo(gridLayer);
 	map.setMaxBounds([[-size * 0.25, -size * 0.25], [size * 1.25, size * 1.25]]);
 	if (!fitted) map.fitBounds([[0, 0], [size, size]]);
+	drawLabels();
+}
+
+// drawLabels writes the grid's numbers along the bottom (east, x) and left
+// (north, z) edges of what's in view, so they show at any zoom.
+function drawLabels() {
+	if (!labelLayer || !size) return;
+	labelLayer.clearLayers();
+	const b = map.getBounds();
+	const label = (at, text, anchor) => L.marker(at, { interactive: false, keyboard: false,
+		icon: L.divIcon({ className: 'gridlbl', html: text, iconSize: null, iconAnchor: anchor }) }).addTo(labelLayer);
+	const west = Math.max(0, b.getWest()), east = Math.min(size, b.getEast());
+	const south = Math.max(0, b.getSouth()), north = Math.min(size, b.getNorth());
+	for (let g = Math.ceil(west / 1000) * 1000; g <= east; g += 1000) label([b.getSouth(), g], pad(g / 100, 3), [-3, 16]);
+	for (let g = Math.ceil(south / 1000) * 1000; g <= north; g += 1000) label([g, b.getWest()], pad(g / 100, 3), [-4, 14]);
 }
 
 function arrowSVG(color) {
@@ -445,7 +471,7 @@ function renderList() {
 	}
 	list.innerHTML = shown.map(p => {
 		const [hc] = hud('health', p.health);
-		const what = p.vehicle ? 'in ' + item(p.vehicle) : (p.hands ? item(p.hands) : 'unarmed');
+		const what = p.vehicle ? 'in ' + vehicleOf(p) : (p.hands ? handsOf(p) : 'unarmed');
 		const f = flagsOf(p).map(([k, t]) => '<span class="' + k + '">' + esc(t) + '</span>').join('');
 		return '<button type="button" class="prow' + (p.guid === selGuid ? ' sel' : '') + '" data-guid="' + p.guid + '">' +
 			'<span class="d" style="background:' + colorOf(p.guid) + '"></span>' +
@@ -463,6 +489,7 @@ document.getElementById('find').addEventListener('input', renderList);
 // ---- A player's dialog --------------------------------------------------
 
 function openPlayer(guid) {
+	drag = null; pending = {};
 	selGuid = guid;
 	detail = null;
 	showForm('');
@@ -501,7 +528,82 @@ function bar(label, v, max, colour, blink, text) {
 }
 function num(v) { return Math.round(v).toLocaleString(); }
 
+// Draggable stat bars. pending is what was set and not yet reported back,
+// by stat: { value, id } (the command), shown as "setting …" until the
+// command finishes.
+let drag = null, pending = {};
+const STAT_LABEL = { health: 'health', blood: 'blood', water: 'water', energy: 'food', heatBuffer: 'comfort' };
+function dragBar(stat, label, v, max, colour, blink, text, extra) {
+	const pct = Math.max(0, Math.min(100, 100 * v / max));
+	const pend = pending[stat];
+	const shown = pend ? '<span class="pend">setting ' + (stat === 'heatBuffer' ? Math.round(100 * pend.value / max) + '%' : num(pend.value)) + '…</span>' : text;
+	return '<div class="bar can' + (blink && !pend ? ' blink' : '') + '" data-stat="' + stat + '" data-max="' + max + '" data-v="' + v + '">' +
+		'<span class="k">' + label + '</span><div class="track" title="Drag to set ' + STAT_LABEL[stat] + '">' +
+		'<div class="fill" style="width:' + pct + '%;background:' + colour + '"></div>' + extra +
+		'<div class="handle" style="left:' + pct + '%"></div></div>' +
+		'<span class="v" style="color:' + colour + '">' + shown + '</span></div>';
+}
+// valueAt is the stat's value where the pointer is on the bar, rounded to
+// a sensible step.
+function valueAt(row, clientX) {
+	const r = row.querySelector('.track').getBoundingClientRect(), max = +row.dataset.max;
+	const frac = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+	const step = max >= 1000 ? 50 : max > 30 ? 1 : max / 100;
+	return Math.round(frac * max / step) * step;
+}
+function dragText(row, v) {
+	return row.dataset.stat === 'heatBuffer' ? Math.round(100 * v / +row.dataset.max) + '%' : num(v);
+}
+function showDrag(v) {
+	const row = drag.row, max = +row.dataset.max, from = 100 * drag.from / max, to = 100 * v / max;
+	const track = row.querySelector('.track');
+	track.querySelectorAll('.ghost, .tip').forEach(e => e.remove());
+	track.insertAdjacentHTML('beforeend', '<div class="ghost" style="left:' + Math.min(from, to) + '%;width:' + Math.abs(to - from) + '%"></div>' +
+		'<div class="tip" style="left:' + to + '%">' + dragText(row, v) + '</div>');
+	row.querySelector('.handle').style.left = to + '%';
+	row.querySelector('.v').innerHTML = esc(dragText(row, drag.from)) + ' → <span class="to">' + esc(dragText(row, v)) + '</span>';
+	drag.value = v;
+}
+function endDrag(send) {
+	if (!drag) return;
+	const d = drag;
+	drag = null;
+	d.row.classList.remove('drag');
+	if (send && Math.abs(d.value - d.from) > 1e-6) {
+		const stat = d.row.dataset.stat;
+		pending[stat] = { value: d.value };
+		api('POST', '/api/mod/players/' + selGuid + '/set', { stat, value: d.value })
+			.then(r => { pending[stat] = { value: d.value, id: r.command.id }; poll(); })
+			.catch(e => { delete pending[stat]; document.getElementById('pErr').textContent = e.message; renderPlayer(); });
+	}
+	renderPlayer();
+}
+document.getElementById('pBars').addEventListener('pointerdown', e => {
+	const row = e.target.closest('.bar.can');
+	if (!row || !e.target.closest('.track') || e.button !== 0 || pending[row.dataset.stat]) return;
+	e.preventDefault();
+	document.getElementById('pErr').textContent = '';
+	drag = { row, from: +row.dataset.v, value: +row.dataset.v, pointer: e.pointerId };
+	row.classList.add('drag');
+	row.querySelector('.track').setPointerCapture(e.pointerId);
+	showDrag(valueAt(row, e.clientX));
+});
+document.getElementById('pBars').addEventListener('pointermove', e => { if (drag && e.pointerId === drag.pointer) showDrag(valueAt(drag.row, e.clientX)); });
+document.getElementById('pBars').addEventListener('pointerup', e => { if (drag && e.pointerId === drag.pointer) endDrag(true); });
+document.getElementById('pBars').addEventListener('pointercancel', () => endDrag(false));
+// clearPending drops what the mod has answered: done (the next sync shows
+// the new value) or failed (the error shows).
+function clearPending() {
+	for (const stat in pending) {
+		const c = pending[stat].id && commands.find(x => x.id === pending[stat].id);
+		if (!c || c.status === 'queued' || c.status === 'sent') continue;
+		if (c.status !== 'done') document.getElementById('pErr').textContent = 'Setting ' + STAT_LABEL[stat] + ' ' + c.status + (c.error ? ': ' + c.error : '');
+		delete pending[stat];
+	}
+}
+
 function renderPlayer() {
+	clearPending();
 	const p = byGuid[selGuid];
 	document.getElementById('pName').textContent = p ? p.name : 'Player';
 	const badge = document.getElementById('pBadge');
@@ -514,18 +616,23 @@ function renderPlayer() {
 		let h = '';
 		for (const [k, label, max] of [['health', 'Health', 100], ['blood', 'Blood', 5000], ['water', 'Water', 5000], ['energy', 'Food', 5000]]) {
 			const [c, b] = hud(k, p[k]);
-			h += bar(label, p[k], max, c, b, num(p[k]) + ' / ' + num(max));
+			h += dragBar(k, label, p[k], max, c, b, num(p[k]) + ' / ' + num(max), '');
 		}
 		h += bar('Shock', p.shock, 100, '#888', false, num(p.shock) + ' / 100');
-		h += bar('Stamina', p.stamina, 100, '#888', false, num(p.stamina) + ' / 100');
+		// Stamina: out of DayZ's maximum, with a mark at the most their load
+		// lets them have (carried weight lowers it).
+		const sMax = p.staminaMax || 100, sCap = p.staminaCap > 0 ? Math.min(p.staminaCap, sMax) : sMax;
+		h += '<div class="bar"><span class="k">Stamina</span><div class="track"><div class="fill" style="width:' + Math.max(0, Math.min(100, 100 * p.stamina / sMax)) + '%;background:#888"></div>' +
+			(sCap < sMax ? '<div class="cap" style="left:' + (100 * sCap / sMax) + '%" title="The most their load lets them have"></div>' : '') +
+			'</div><span class="v" style="color:#888">' + num(p.stamina) + ' / ' + num(sMax) + (sCap < sMax - 0.5 ? ' · cap ' + num(sCap) : '') + '</span></div>';
 		const [tc, tb, tt] = temp(p.heat);
 		h += '<div class="bar' + (tb ? ' blink' : '') + '"><span class="k">Temp</span><div class="track temp"><div class="mark" style="left:calc(' + (50 + 50 * Math.max(-1, Math.min(1, p.heat))) + '% - 1px);background:' + tc + '"></div></div><span class="v" style="color:' + tc + '">' + tt + '</span></div>';
 		const hbFrac = Math.max(0, Math.min(1, p.heatBuffer / (p.heatBufferMax || 30)));
 		const stage = ['none', '+', '++', '+++'][p.heatBufferStage] || 'none';
-		h += '<div class="bar"><span class="k">Comfort</span><div class="track"><div class="fill" style="width:' + (100 * hbFrac) + '%;background:var(--hud-white)"></div>' +
-			(p.heatBufferCap > 0 ? '<div class="cap" style="left:' + (100 * p.heatBufferCap) + '%" title="The most their clothes allow"></div>' : '') +
-			'</div><span class="v">' + stage + ' · ' + Math.round(100 * hbFrac) + '%</span></div>';
-		document.getElementById('pBars').innerHTML = h;
+		h += dragBar('heatBuffer', 'Comfort', p.heatBuffer, p.heatBufferMax || 30, 'var(--hud-white)', false, stage + ' · ' + Math.round(100 * hbFrac) + '%',
+			p.heatBufferCap > 0 ? '<div class="cap" style="left:' + (100 * p.heatBufferCap) + '%" title="The most their clothes allow"></div>' : '');
+		// Not while a bar is being dragged: redrawing would drop the drag.
+		if (!drag) document.getElementById('pBars').innerHTML = h + '<div class="draghint">Drag Health, Blood, Water, Food or Comfort left or right to set it (or click a spot on the bar). Esc cancels a drag.</div>';
 		const chips = [];
 		chips.push(p.bleeding ? ['red', 'Bleeding · ' + p.bleeding + (p.bleeding === 1 ? ' wound' : ' wounds')] : ['', 'Not bleeding']);
 		(p.illnesses || []).forEach(i => chips.push(['amber', i[0].toUpperCase() + i.slice(1)]));
@@ -534,8 +641,8 @@ function renderPlayer() {
 		chips.push(p.unconscious ? ['red', 'Knocked out'] : ['', 'Conscious']);
 		chips.push(p.restrained ? ['amber', 'Restrained'] : ['', 'Not restrained']);
 		document.getElementById('pChips').innerHTML = chips.map(([c, t]) => '<span class="chip ' + c + '">' + esc(t) + '</span>').join('');
-		document.getElementById('tHands').textContent = p.hands ? item(p.hands) : 'Nothing';
-		document.getElementById('tVehicle').textContent = p.vehicle ? item(p.vehicle) : 'On foot';
+		document.getElementById('tHands').textContent = p.hands ? handsOf(p) : 'Nothing';
+		document.getElementById('tVehicle').textContent = p.vehicle ? vehicleOf(p) : 'On foot';
 		document.getElementById('tKD').innerHTML = p.kills + ' / ' + p.deaths + ' <span class="s">this session</span>';
 		drawMini(p);
 	} else {
@@ -640,19 +747,14 @@ document.getElementById('mini').addEventListener('click', e => {
 });
 
 function showForm(name) {
-	for (const [f, b] of [['Teleport', 'bTeleport'], ['Set', 'bSet'], ['Message', 'bMessage']]) {
+	for (const [f, b] of [['Teleport', 'bTeleport'], ['Message', 'bMessage']]) {
 		const on = f.toLowerCase() === name;
 		document.getElementById('f' + f).hidden = !on;
 		document.getElementById(b).classList.toggle('on', on);
 	}
 	tpPick = null;
 	if (name === 'message') document.getElementById('msgText').focus();
-	if (name === 'set') {
-		const p = byGuid[selGuid];
-		if (p) document.getElementById('setVal').value = Math.round(p[document.getElementById('setStat').value]);
-	}
 }
-document.getElementById('setStat').addEventListener('change', () => showForm('set'));
 
 async function act(action, body) {
 	const err = document.getElementById('pErr');
@@ -674,11 +776,6 @@ function doTeleport() {
 	const x = parseFloat(document.getElementById('tpX').value), z = parseFloat(document.getElementById('tpZ').value);
 	if (!(x > 0) || !(z > 0)) { document.getElementById('pErr').textContent = 'Enter where to (x and z, in metres), click the mini-map, or pick a player.'; return; }
 	act('teleport', { x, z, y: 0 });
-}
-function doSet() {
-	const v = parseFloat(document.getElementById('setVal').value);
-	if (isNaN(v)) { document.getElementById('pErr').textContent = 'Enter a number.'; return; }
-	act('set', { stat: document.getElementById('setStat').value, value: v });
 }
 function doMessage() {
 	const t = document.getElementById('msgText').value.trim();
@@ -772,6 +869,14 @@ function renderWorld() {
 	fb.textContent = wx.timeFrozen ? 'Unfreeze time' : 'Freeze time';
 	fb.classList.toggle('on', !!wx.timeFrozen);
 	document.querySelectorAll('#wMode button').forEach(b => b.classList.toggle('on', b.getAttribute('data-mode') === wx.mode));
+	// A mode nobody picked here was set by the server's mission (Namalsk and
+	// other maps run their own weather), which can change the weather back.
+	const pickedHere = commands.some(c => c.action === 'weatherMode' && c.status === 'done');
+	const note = document.getElementById('wModeNote');
+	note.hidden = pickedHere || wx.mode === 'static';
+	note.textContent = wx.mode === 'forecast'
+		? "This map's mission runs its own weather and set this mode, so it can change the weather back after you set it. To keep your weather, pick \"nothing (frozen)\" after applying it."
+		: "The map's weather rules can change the weather back after the time you set it to hold. To keep it, pick \"nothing (frozen)\" after applying it.";
 	WX.forEach(([k, , , fmt]) => {
 		const now = wxNow(k, wx, false), tgt = wxNow(k, wx, true);
 		document.getElementById('wn_' + k).textContent = 'now ' + fmt(now) + (tgt !== now ? ' → ' + fmt(tgt) : '');
@@ -813,6 +918,7 @@ function setRainRange() {
 
 document.addEventListener('keydown', e => {
 	if (e.key !== 'Escape') return;
+	if (drag) { endDrag(false); return; }
 	if (document.getElementById('wModal').style.display === 'flex') closeWorld();
 	else if (document.getElementById('pModal').style.display === 'flex') closePlayer();
 });

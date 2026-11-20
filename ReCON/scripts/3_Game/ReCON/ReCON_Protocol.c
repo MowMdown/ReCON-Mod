@@ -44,6 +44,8 @@ class ReCON_PlayerState
 	int heatBufferStage; // the HUD's buff icon: 0 none, 1-3
 	int wet;         // 0 dry, 1 wet
 	float stamina;
+	float staminaMax;    // DayZ's stamina maximum (100 by default)
+	float staminaCap;    // the most they can have now: carried weight lowers it
 	int bleeding;    // open wounds
 	int agents;      // illnesses, eAgents bits
 	int brokenLegs;  // 0 no, 1 broken, 2 splinted
@@ -51,6 +53,8 @@ class ReCON_PlayerState
 	bool restrained;
 	string hands;    // class name of the item in hand
 	string vehicle;  // class name of the vehicle they are in
+	string handsName;   // their names as the game shows them ("Wood Axe")
+	string vehicleName;
 	int kills;       // this session, as the mod saw them
 	int deaths;
 };

@@ -78,6 +78,8 @@ type PlayerState struct {
 	HeatBufferStage int     `json:"heatBufferStage"` // the HUD's buff icon: 0 none, 1 to 3
 	Wet             int     `json:"wet"`
 	Stamina         float64 `json:"stamina"`
+	StaminaMax      float64 `json:"staminaMax"` // DayZ's maximum (100 by default)
+	StaminaCap      float64 `json:"staminaCap"` // the most they can have now: carried weight lowers it
 	Bleeding        int     `json:"bleeding"`
 	Agents          int     `json:"agents"`
 	BrokenLegs      int     `json:"brokenLegs"`
@@ -85,6 +87,8 @@ type PlayerState struct {
 	Restrained      Flag    `json:"restrained"`
 	Hands           string  `json:"hands"`
 	Vehicle         string  `json:"vehicle"`
+	HandsName       string  `json:"handsName"` // as the game shows them ("Wood Axe")
+	VehicleName     string  `json:"vehicleName"`
 	Kills           int     `json:"kills"`
 	Deaths          int     `json:"deaths"`
 }
@@ -418,7 +422,7 @@ func Commands(guid string) []CommandStatus {
 // with their largest values.
 var (
 	Actions  = map[string]bool{"heal": true, "kill": true, "teleport": true, "teleportTo": true, "set": true, "message": true}
-	StatMaxs = map[string]float64{"health": 100, "blood": 5000, "shock": 100, "water": 5000, "energy": 5000, "stamina": 100, "heatBuffer": 30}
+	StatMaxs = map[string]float64{"health": 100, "blood": 5000, "water": 5000, "energy": 5000, "heatBuffer": 30}
 )
 
 // Queue adds a command for an online player (guid); c.SteamID and, for
@@ -432,7 +436,7 @@ func Queue(guid string, c Command, now time.Time) (CommandStatus, error) {
 	case "set":
 		max, ok := StatMaxs[c.Stat]
 		if !ok {
-			return CommandStatus{}, errors.New("stat is health, blood, shock, water, energy, stamina or heatBuffer")
+			return CommandStatus{}, errors.New("stat is health, blood, water, energy or heatBuffer (shock, stamina and temperature are read only)")
 		}
 		if c.Value < 0 || c.Value > max {
 			return CommandStatus{}, errors.New(c.Stat + " is from 0 to " + strconv.FormatFloat(max, 'f', -1, 64))

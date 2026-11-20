@@ -125,9 +125,6 @@ class ReCON_Actions
 			case "blood":
 				p.SetHealth("", "Blood", Math.Min(value, p.GetMaxHealth("", "Blood")));
 				return "";
-			case "shock":
-				p.SetHealth("", "Shock", Math.Min(value, p.GetMaxHealth("", "Shock")));
-				return "";
 			case "water":
 				if (!p.GetStatWater())
 					return "no water stat";
@@ -137,11 +134,6 @@ class ReCON_Actions
 				if (!p.GetStatEnergy())
 					return "no food stat";
 				p.GetStatEnergy().Set(Math.Min(value, p.GetStatEnergy().GetMax()));
-				return "";
-			case "stamina":
-				if (!p.GetStaminaHandler())
-					return "no stamina";
-				p.GetStaminaHandler().SetStamina(Math.Min(value, GameConstants.STAMINA_MAX));
 				return "";
 			case "heatBuffer":
 				if (!p.GetStatHeatBuffer())

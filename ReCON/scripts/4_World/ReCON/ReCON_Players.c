@@ -36,7 +36,14 @@ class ReCON_Players
 		s.heatBufferStage = p.GetHeatBufferStage();
 		if (p.GetStatWet())
 			s.wet = p.GetStatWet().Get();
-		if (p.GetStatStamina())
+		StaminaHandler stamina = p.GetStaminaHandler();
+		if (stamina)
+		{
+			s.stamina = stamina.GetStamina();
+			s.staminaMax = stamina.GetStaminaMax();
+			s.staminaCap = stamina.GetStaminaCap();
+		}
+		else if (p.GetStatStamina())
 			s.stamina = p.GetStatStamina().Get();
 		s.bleeding = p.GetBleedingSourceCount();
 		s.agents = p.GetAgents();
@@ -46,10 +53,16 @@ class ReCON_Players
 
 		EntityAI hands = p.GetItemInHands();
 		if (hands)
+		{
 			s.hands = hands.GetType();
+			s.handsName = hands.GetDisplayName();
+		}
 		HumanCommandVehicle hcv = p.GetCommand_Vehicle();
 		if (hcv && hcv.GetTransport())
+		{
 			s.vehicle = hcv.GetTransport().GetType();
+			s.vehicleName = hcv.GetTransport().GetDisplayName();
+		}
 
 		s.kills = kills.Get(s.steamId);
 		s.deaths = deaths.Get(s.steamId);

@@ -63,21 +63,34 @@ class ReCON_Actions
 		return r.error;
 	}
 
-	// Heal restores health, blood, shock, food and water; stops bleeding;
-	// cures illnesses; mends broken legs; and wakes them if knocked out
-	// (full shock does that on its own).
+	// Heal restores health, blood, shock, food, water and stamina; stops
+	// bleeding; cures illnesses and their symptoms; mends broken legs; and
+	// wakes them if knocked out. A player another tool made invulnerable is
+	// made vulnerable for the moment, or the health changes don't stick
+	// (Community Online Tools does the same).
 	static void Heal(PlayerBase p)
 	{
+		bool allowDamage = p.GetAllowDamage();
+		if (!allowDamage)
+			p.SetAllowDamage(true);
 		DamageSystem.ResetAllZones(p);
 		if (p.GetStatWater())
 			p.GetStatWater().Set(p.GetStatWater().GetMax());
 		if (p.GetStatEnergy())
 			p.GetStatEnergy().Set(p.GetStatEnergy().GetMax());
+		if (p.GetStaminaHandler())
+			p.GetStaminaHandler().SetStamina(GameConstants.STAMINA_MAX);
 		if (p.GetBleedingManagerServer())
 			p.GetBleedingManagerServer().RemoveAllSources();
 		p.RemoveAllAgents();
+		if (p.GetModifiersManager())
+			p.GetModifiersManager().DeactivateAllModifiers(); // symptoms; they come back only if their cause does
 		if (p.GetBrokenLegs() != eBrokenLegs.NO_BROKEN_LEGS)
 			p.SetBrokenLegs(eBrokenLegs.NO_BROKEN_LEGS);
+		if (p.IsUnconscious())
+			DayZPlayerSyncJunctures.SendPlayerUnconsciousness(p, false);
+		if (!allowDamage)
+			p.SetAllowDamage(false);
 	}
 
 	// Teleport moves them (and their vehicle) to x, z; y 0 or below means
@@ -116,6 +129,16 @@ class ReCON_Actions
 				if (!p.GetStatEnergy())
 					return "no food stat";
 				p.GetStatEnergy().Set(Math.Min(value, p.GetStatEnergy().GetMax()));
+				return "";
+			case "stamina":
+				if (!p.GetStaminaHandler())
+					return "no stamina";
+				p.GetStaminaHandler().SetStamina(Math.Min(value, GameConstants.STAMINA_MAX));
+				return "";
+			case "heatBuffer":
+				if (!p.GetStatHeatBuffer())
+					return "no heat buff stat";
+				p.GetStatHeatBuffer().Set(Math.Min(value, p.GetStatHeatBuffer().GetMax()));
 				return "";
 		}
 		return "unknown stat " + stat;

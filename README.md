@@ -91,9 +91,9 @@ that ReCON didn't get, because it was down or refused them, are sent again.
 
 | Action | Fields |
 |---|---|
-| `heal` | Full health, blood, shock, food and water. Stops bleeding, cures illnesses and mends broken legs. |
+| `heal` | Full health, blood, shock, food, water and stamina. Stops bleeding, cures illnesses and their symptoms, mends broken legs and wakes them if knocked out. |
 | `kill` | — |
 | `teleport` | `x`, `z`, and `y` (0 = ground level). |
 | `teleportTo` | `target`: the SteamID64 of the player to go to. |
-| `set` | `stat` (`health`, `blood`, `shock`, `water` or `energy`) and `value`. |
+| `set` | `stat` (`health`, `blood`, `shock`, `water`, `energy`, `stamina` or `heatBuffer`) and `value`. |
 | `message` | `text`, plus optional `title` and `seconds`. Shown as an in-game notification. |

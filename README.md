@@ -1,7 +1,9 @@
 # ReCON-Mod
 
-The DayZ server-side companion mod for [ReCON](https://github.com/MowMdown/ReCON),
-and ReCON's side of it (the Live Map page and the API the mod talks to).
+The DayZ server-side companion mod for [ReCON](https://github.com/MowMdown/ReCON).
+ReCON shows what it sends on its Live Map page; the page, the API the mod
+talks to and the map pictures are documented in
+[ReCON's README](https://github.com/MowMdown/ReCON#live-map-live).
 
 > **Monetized servers need Bohemia Interactive's approval.** The MIT
 > licence lets you use ReCON-Mod on any server, but it gives no permission
@@ -14,7 +16,6 @@ and ReCON's side of it (the Live Map page and the API the mod talks to).
 | Path | Contents |
 |---|---|
 | `ReCON/` | The DayZ mod (Enforce script, built on CF), packed into `@ReCON/addons/ReCON.pbo` |
-| `panel/` | A Go package ReCON builds in on request: the Live Map page (`templates/live.html`), the API, the command queue and the kills table |
 | `cmd/pbo/`, `pbo/` | The packer that builds `@ReCON/addons/ReCON.pbo` (see Build) |
 | `.github/workflows/build.yml` | Builds and tests on every push; a `v*` tag publishes a release |
 
@@ -158,131 +159,14 @@ World actions, modelled on Community Online Tools' weather module:
 | `date` | `year`, `month`, `day`, `hour`, `minute`. |
 | `freezeTime` | `value`: 1 stops the clock, 0 starts it. |
 
-## ReCON's side: the Live Map
-
-ReCON has none of this unless it is built with it:
-`docker build --build-arg RECON_MOD=true .` in the ReCON repository (see its
-README). That copies `cmd/recon/_mod/recon_mod.go` in, which hands
-`panel.Start` ReCON's database, the RCON password and its hooks for pages,
-routes and nav links.
-
-The **Live Map** page (`/live`, in the nav after Server Info):
-
-- **Left:** every online player, with their map grid square, what's in their
-  hands or the vehicle they're in, a health bar, and chips for bleeding,
-  illness, knocked out and restrained. A search box filters the list.
-- **Right:** the map, with each player as an arrow showing their heading,
-  updated every second. Drag to pan, scroll to zoom; **Fit** shows the
-  whole map. It is a 1 km grid with the map's coordinates; to draw the
-  terrain under it, put a picture of the whole map (square, north up) in
-  ReCON's data folder as `maps/<world>.jpg` (or `.png`, `.webp`), such as
-  `maps/chernarusplus.jpg`: [satmap](#map-pictures-satmap) makes one from
-  the map's own files. For a big picture, slice it into tiles too (see
-  below): the page then loads only the tiles in view. Above the map: the
-  weather and the in-game time.
-- **Clicking a player** opens their stats. Drag Health, Blood, Water, Food or
-  Comfort left or right to set it (shock, stamina and temperature are read
-  only). They show health, blood, water and food in
-  DayZ's HUD colours (white, yellow, red, blinking red at the same
-  thresholds as the game), shock, stamina, temperature (the game's hot and
-  cold colours) and comfort (the heat buff, with its +/++/+++ stage and the
-  most their clothes allow), conditions, a mini-map of the 1 km around them,
-  what's in hand, vehicle, kills and deaths, and the actions: Heal,
-  Teleport (to a spot, a mini-map click or another player), Message and
-  Kill. Each action's result shows below them.
-- **World…** sets the in-game date and time, freezes the clock, and sets the
-  weather: overcast, rain, fog, snow, wind speed and direction, and
-  lightning, with presets (Clear, Cloudy, Rain, Thunderstorm, Fog, Snow),
-  over how many seconds the change happens and how long it holds; whether
-  the weather follows the map's rules, only what was set, or is frozen; and
-  the overcast range rain falls in.
-
-While the mod is connected, ReCON's Server Info page takes the in-game date
-from it (for sunrise and sunset) rather than from `SERVER_TIME`.
-
-### Map pictures (satmap)
-
-`satmap` makes `maps/<world>.jpg` from a map's own satellite tiles
-(`layers\S_<x>_<y>_lco.paa` in one of its data PBOs), on Windows, Linux or
-macOS, with no DayZ Tools. Each release has it ready to run
-(`satmap-windows-amd64.exe` and others); or, with Go, `go run ./cmd/satmap`.
-
-Point it at a PBO or a folder: it looks through every PBO in the folder
-and its subfolders for tiles. For the official maps (Chernarus, Livonia,
-Sakhal, Nasdara) that is the DayZ folder; for a map mod (Namalsk, Deer
-Isle, ...), the mod's folder.
-
-```
-satmap "C:\Program Files (x86)\Steam\steamapps\common\DayZ"
-satmap -world chernarusplus "C:\Program Files (x86)\Steam\steamapps\common\DayZ"
-satmap "C:\Program Files (x86)\Steam\steamapps\common\DayZ\!Workshop\@Namalsk Island"
-```
-
-- When it finds more than one map, it lists them with their world names:
-  run it again with `-world` and one of them (`-world enoch`; any part of
-  the path works). The world name it guesses from the path is the file
-  name; it has to be the one the mod reports (the `world` in
-  `/api/mod/players`), so give `-world <that name>` if they differ.
-- The tiles overlap; satmap measures by how much and crops it (`-crop N`
-  to set it by hand). It keeps the picture's size rounded down to a
-  multiple of 256 px, which drops the padding at the edges on the maps we
-  know of (`-size N` to set it: on most maps 1 px is 1 m, so it is the
-  map's size in metres).
-- It writes 8192 × 8192 px (`-px` to change it). A whole map takes a few
-  seconds.
-
-Put the picture in ReCON's data folder as `maps/<world>.jpg` (with Docker,
-the `maps` folder next to the database).
-
-**Tiles.** A whole picture loads in full on every visit, which is heavy on
-a phone. Slice it into a square grid of tiles in `maps/<world>/`, named
-`<column>_<row>.jpg` (column 0 at the west edge, row 0 at the north; `.png`
-and `.webp` work too), and the page loads only the tiles in view and just
-around it. ImageMagick slices it 16 × 16:
-
-```
-magick chernarusplus.jpg -crop 16x16@ -set filename:t "%[fx:page.x/w]_%[fx:page.y/h]" +repage "maps/chernarusplus/%[filename:t].jpg"
-```
-
-Keep a small `maps/<world>.jpg` too (2048 or 4096 px: `magick
-chernarusplus.jpg -resize 4096x4096 maps/chernarusplus.jpg`): zoomed out,
-when the whole map is in view, the page draws that instead of every tile,
-and it shows under tiles that are still loading. It comes from the game's or the
-map mod's files: use it on your own ReCON, but don't share or publish it.
-
-### The API
-
-ReCON stores every death the mod reports (its own `mod_kills` table) and the SteamIDs it reports.
-
-| Method | Path | Body | Description |
-| ------ | ---- | ---- | ----------- |
-| POST | `/api/mod/sync` | the mod's sync | Used by the mod only: player data in, commands out (403 with the wrong password) |
-| GET  | `/api/mod/players` | | `mod` (`connected`, `lastSync`, `world`, in-game `date`), every online player's live state with their `guid`, and the recent commands |
-| GET  | `/api/mod/players/<guid>` | | One player: `live` and `player` (when online), `kills`, `deaths`, `recentKills`, and the commands sent to them |
-| POST | `/api/mod/players/<guid>/<action>` | see below | Queue an action. The mod runs it on its next sync; its `status` (`queued`, `sent`, `done`, `failed`, `expired`) shows in the commands |
-| POST | `/api/mod/world/<action>` | see below | Queue a weather or time change, the same way |
-
-Actions: `heal` (full health, blood, shock, food and water; stops bleeding, cures illnesses, mends broken legs), `kill`, `teleport` `{"x", "z", "y"}` (`y` 0 = ground level), `teleportTo` `{"target": "<guid>"}`, `set` `{"stat": "health|blood|water|energy|heatBuffer", "value"}` (shock, stamina and temperature are read only), `message` `{"text", "title", "seconds"}`. A command the mod hasn't answered within 30 seconds expires.
-
-World actions, modelled on Community Online Tools' weather module (`mod.weather` in `/api/mod/players` shows the weather now and where it is heading):
-
-- `weather` `{"stat", "value", "transition", "hold"}`: `stat` is `overcast`, `rain`, `fog`, `snow` (0 to 1), `windSpeed` (m/s) or `windDir` (degrees). It changes to `value` over `transition` seconds and stays at least `hold` seconds.
-- `weatherMode` `{"text"}`: `world` (the map's weather rules), `forecast` (only what was set) or `static` (frozen as it is).
-- `storm` `{"value", "min", "hold"}`: lightning density (0 to 1), the overcast it starts at, and the seconds between strikes.
-- `rainThresholds` `{"min", "max", "transition"}`: the overcast range rain falls in, and the seconds it takes to stop.
-- `date` `{"year", "month", "day", "hour", "minute"}`: the in-game date and time.
-- `freezeTime` `{"value"}`: 1 stops the in-game clock, 0 starts it again.
-
-
 ## Credits and licences
 
 ReCON-Mod's own code is under the [MIT License](LICENSE); a monetized
 server still needs Bohemia Interactive's approval (above). [NOTICE](NOTICE)
 lists what it builds on or learned from, and their licences:
 
-- **DayZ** (Bohemia Interactive). The mod uses DayZ's script API, and the
-  Live Map uses the thresholds and colours from DayZ's scripts for the HUD
-  colours. DayZ's scripts are under the
+- **DayZ** (Bohemia Interactive). The mod uses DayZ's script API, and
+  values from DayZ's scripts such as the player stats' ranges. DayZ's scripts are under the
   [DayZ Public License](https://www.bohemia.net/en/licenses/dayz-public-license-dpl):
   attribution, non-commercial, DayZ only, for any of that material used
   here. Keep your use of the mod within it, and within Bohemia's rules for
@@ -295,7 +179,3 @@ lists what it builds on or learned from, and their licences:
   by Jacob_Mango and contributors (CC BY-SA 4.0). The heal action and the
   weather and time controls are modelled on how COT does them, and written
   here with DayZ's own API. No COT code is copied.
-
-A picture of a map you put in ReCON's `maps` folder must be one you have the
-right to use. Many online DayZ map images belong to their makers; one
-satmap makes from your own game files is for your own use, not to share.

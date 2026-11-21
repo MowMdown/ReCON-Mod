@@ -242,8 +242,6 @@ lists what it builds on or learned from, and their licences:
   by Jacob_Mango and contributors (CC BY-SA 4.0). The heal action and the
   weather and time controls are modelled on how COT does them, and written
   here with DayZ's own API. No COT code is copied.
-- **[Leaflet](https://leafletjs.com)** (BSD 2-Clause) draws the Live Map; ReCON
-  ships it with its licence.
 
 A picture of a map you put in ReCON's `maps` folder must be one you have the
 right to use. Many online DayZ map images belong to their makers.

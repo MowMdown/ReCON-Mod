@@ -9,7 +9,7 @@ const int RECON_PROTOCOL = 1;
 class ReCON_Sync
 {
 	int v = RECON_PROTOCOL;
-	string mod = "0.0.1j";
+	string mod = "0.0.1k";
 	string key;      // the RCON password
 	string world;    // "chernarusplus"
 	int year;        // the in-game date and time
@@ -90,7 +90,7 @@ class ReCON_CatalogItem
 {
 	string type;  // class name
 	string name;  // display name
-	string kind;  // weapon | magazine | ammo | clothing | item
+	string kind;  // weapon | magazine | ammo | clothing | vehicle | animal | item
 };
 
 class ReCON_PlayerState

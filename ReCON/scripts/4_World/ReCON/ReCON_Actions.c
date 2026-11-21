@@ -152,7 +152,8 @@ class ReCON_Actions
 	// "hands" (one, into empty hands), "inventory" (anywhere free in their
 	// clothing and containers; what doesn't fit goes on the ground) or, by
 	// default, on the ground a metre or so in front of them, a little apart.
-	// A vehicle is one, whole, 8 m in front of them and facing their way.
+	// A vehicle is one, whole, 8 m in front of them and facing their way;
+	// animals go on the ground 4 m in front of them, 1.5 m apart.
 	static string Spawn(PlayerBase p, string type, float count, string where)
 	{
 		if (!ReCON_Catalog.Spawnable(type))
@@ -165,6 +166,21 @@ class ReCON_Actions
 		if (n > 20)
 			n = 20;
 		EntityAI e;
+		if (g_Game.IsKindOf(type, "AnimalBase"))
+		{
+			vector dir = p.GetDirection();
+			dir[1] = 0;
+			dir.Normalize();
+			vector side = Vector(dir[2], 0, -dir[0]);
+			for (int a = 0; a < n; a++)
+			{
+				vector at = p.GetPosition() + dir * 4 + side * ((a - (n - 1) / 2.0) * 1.5);
+				at[1] = g_Game.SurfaceY(at[0], at[2]);
+				if (!SpawnAnimal(type, at))
+					return "the game couldn't create " + type;
+			}
+			return "";
+		}
 		if (where == "hands")
 		{
 			if (p.GetItemInHands())
@@ -309,7 +325,8 @@ class ReCON_Actions
 
 	// SpawnAt makes count of type (one, if a vehicle) at x, z on the map:
 	// items in a little cluster on the ground, a vehicle whole facing north
-	// (a boat on the water there, at sea level, if it is sea).
+	// (a boat on the water there, at sea level, if it is sea), animals 1.5 m
+	// apart.
 	static string SpawnAt(string type, float count, float x, float z)
 	{
 		if (!ReCON_Catalog.Spawnable(type))
@@ -332,17 +349,34 @@ class ReCON_Actions
 			n = 1;
 		if (n > 20)
 			n = 20;
+		bool animal = g_Game.IsKindOf(type, "AnimalBase");
+		float gap = 0.4;
+		if (animal)
+			gap = 1.5;
 		for (int i = 0; i < n; i++)
 		{
-			// A row west to east, 0.4 m apart.
-			vector it = at + Vector((i - (n - 1) / 2.0) * 0.4, 0, 0);
+			// A row west to east, gap apart.
+			vector it = at + Vector((i - (n - 1) / 2.0) * gap, 0, 0);
 			it[1] = g_Game.SurfaceY(it[0], it[2]);
+			if (animal)
+			{
+				if (!SpawnAnimal(type, it))
+					return "the game couldn't create " + type;
+				continue;
+			}
 			EntityAI e = EntityAI.Cast(g_Game.CreateObjectEx(type, it, ECE_PLACE_ON_SURFACE));
 			if (!e)
 				return "the game couldn't create " + type;
 			FillUp(e);
 		}
 		return "";
+	}
+
+	// SpawnAnimal makes one animal of type at at, its AI running (without
+	// ECE_INITAI it would stand there frozen).
+	static EntityAI SpawnAnimal(string type, vector at)
+	{
+		return EntityAI.Cast(g_Game.CreateObjectEx(type, at, ECE_PLACE_ON_SURFACE | ECE_INITAI));
 	}
 
 	// SpawnVehicleAt makes one of type at at, facing dir, whole (see

@@ -139,7 +139,7 @@ car, motorbike and boat on the server (`id`, `type`, `name`, `x`, `z`,
 `watchVehicles` (ReCON asks once, when a vehicle is clicked on the Live
 Map), the next sync's `vehicleDetails` has that vehicle's damage zones
 (`name`, `health`) and its parts and cargo (`items`, as in an inventory).
-`deleteVehicle` (`text`: its id) deletes one, not while anyone is in it. `spawnAt` (`text`: a class from the item list, `value`: 1 to 20, `x`, `z`) spawns at a spot on the map: items in a row on the ground, a vehicle whole, facing north (a boat on the water at sea level if the spot is sea).
+`deleteVehicle` (`text`: its id) deletes one, not while anyone is in it. `spawnAt` (`text`: a class from the item list, `value`: 1 to 20, `x`, `z`) spawns at a spot on the map: items in a row on the ground, a vehicle whole, facing north (a boat on the water at sea level if the spot is sea), animals in a row 1.5 m apart (recon-mod 0.0.1k on).
 With the vehicles come `worldEvents`: helicopter crashes (`CrashBase`) and
 areas (`EffectArea`: toxic zones), each with `id`, `type`, `kind` (crash,
 gas or area), `x`, `z` and `radius`. When the reply has `wantPlaces` (once
@@ -174,7 +174,7 @@ that ReCON didn't get, because it was down or refused them, are sent again.
 | `teleportTo` | `target`: the SteamID64 of the player to go to. |
 | `set` | `stat` (`health`, `blood`, `water`, `energy` or `heatBuffer`) and `value`. Shock, stamina and temperature are read only. |
 | `message` | `text`, plus optional `title` and `seconds`. Shown as an in-game notification. |
-| `spawn` | `text` (a class from the item list), `value` (1 to 20) and `stat`, where: `ground` (or empty) in front of them, `inventory` (anywhere free in their clothing and containers; what doesn't fit goes on the ground) or `hands` (one, into empty hands). A vehicle (car, motorbike, boat) is one, 8 m in front of them and facing their way, made whole the way DayZ's developer spawn and COT make one: its `OnDebugSpawn` fits wheels, doors and engine parts, then a car's fuel, oil, brake fluid and coolant are filled. A modded vehicle is in the list too; it comes whole if its mod gives it an `OnDebugSpawn` (most do, for admin tools), otherwise with what DayZ's default fits from its config. |
+| `spawn` | `text` (a class from the item list), `value` (1 to 20) and `stat`, where: `ground` (or empty) in front of them, `inventory` (anywhere free in their clothing and containers; what doesn't fit goes on the ground) or `hands` (one, into empty hands). A vehicle (car, motorbike, boat) is one, 8 m in front of them and facing their way, made whole the way DayZ's developer spawn and COT make one: its `OnDebugSpawn` fits wheels, doors and engine parts, then a car's fuel, oil, brake fluid and coolant are filled. A modded vehicle is in the list too; it comes whole if its mod gives it an `OnDebugSpawn` (most do, for admin tools), otherwise with what DayZ's default fits from its config. An animal (recon-mod 0.0.1k on; `kind` `animal` in the item list) goes on the ground 4 m in front of them, 1.5 m apart, its AI running; `stat` is ignored. |
 
 World actions, modelled on Community Online Tools' weather module:
 

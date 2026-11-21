@@ -1,7 +1,8 @@
 // ReCON_Catalog is every item the server can spawn, read from the loaded
 // config (DayZ's and every mod's): the public (scope 2) classes that are
-// inventory items, weapons, magazines or vehicles (cars, motorbikes, boats:
-// spawned whole, see ReCON_Actions.Spawn). Buildings aren't in it.
+// inventory items, weapons, magazines, vehicles (cars, motorbikes, boats:
+// spawned whole, see ReCON_Actions.Spawn) or animals (on the ground, with
+// their AI). Buildings aren't in it.
 class ReCON_Catalog
 {
 	// PAGE is how many entries go in one sync.
@@ -51,6 +52,8 @@ class ReCON_Catalog
 			case "CfgVehicles":
 				if (g_Game.IsKindOf(type, "Transport"))
 					return "vehicle";
+				if (g_Game.IsKindOf(type, "AnimalBase"))
+					return "animal";
 				if (!g_Game.IsKindOf(type, "Inventory_Base"))
 					return "";
 				if (g_Game.IsKindOf(type, "Clothing"))

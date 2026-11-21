@@ -106,6 +106,10 @@
 /* The mini-map's overlays: the point under the cursor and Recenter at
    the top, the scale at the bottom. */
 .miniwrap { position: relative; align-self: start; }
+/* The map's picture, under the mini-map's SVG: only the part in view, at
+   the mini-map's own size (a phone can't hold the whole picture scaled up). */
+.miniwrap #mini { position: relative; background: transparent; }
+.miniwrap #miniCv { position: absolute; left: 1px; top: 1px; border-radius: 5px; background: #161a17; pointer-events: none; }
 .minihud { position: absolute; top: 6px; left: 6px; right: 6px; display: flex; align-items: center; gap: 6px; pointer-events: none; font-size: 11.5px; color: #cfd8d0; }
 .minihud #miniXY { background: rgba(17,17,17,.75); border-radius: 4px; padding: 1px 6px; }
 .minihud #miniXY:empty { display: none; }
@@ -272,7 +276,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 				<div class="chips" id="pChips"></div>
 			</div>
 			<div class="miniwrap">
-				<svg id="mini" viewBox="0 0 260 260" role="img" aria-label="The map around the player: drag to move, scroll to zoom, click to pick a teleport spot, double-click to teleport there"><image id="miniImg" preserveAspectRatio="none" visibility="hidden"/><g id="miniG"></g></svg>
+				<canvas id="miniCv" aria-hidden="true"></canvas><svg id="mini" viewBox="0 0 260 260" role="img" aria-label="The map around the player: drag to move, scroll to zoom, click to pick a teleport spot, double-click to teleport there"><g id="miniG"></g></svg>
 				<div class="minihud"><span id="miniXY"></span><span class="sp"></span><button type="button" id="miniFollow" hidden title="Zoom back to 500 m across on the player and follow them again">Recenter</button></div>
 				<div class="miniscale" id="miniScale"></div>
 			</div>
@@ -439,9 +443,9 @@ async function poll() {
 const SIZES = { chernarusplus: 15360, enoch: 12800, namalsk: 12800, deerisle: 16384, sakhal: 15360, esseker: 12800, takistanplus: 12800, banov: 15360, chiemsee: 10240, pripyat: 20480, rostow: 14336, iztek: 8192, alteria: 8192 };
 const NAMES = { chernarusplus: 'Chernarus', enoch: 'Livonia', namalsk: 'Namalsk', deerisle: 'Deer Isle', sakhal: 'Sakhal', esseker: 'Esseker', takistanplus: 'Takistan', banov: 'Banov', chiemsee: 'Chiemsee', pripyat: 'Pripyat', rostow: 'Rostow', iztek: 'Iztek', alteria: 'Alteria', nasdara: 'Nasdara' };
 let map, size = 0, world = '', gridLayer, labelLayer, imageLayer, markers = {}, fitted = false;
-// mapImg is the URL of the world's picture once it has loaded (the mini-map
-// draws it too), or '' while there is none.
-let mapImg = '';
+// mapImg is the world's picture once it has loaded (the mini-map draws it
+// too), or null while there is none.
+let mapImg = null;
 
 function initMap() {
 	map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 3, zoomSnap: 0.25, attributionControl: false, zoomControl: false });
@@ -452,6 +456,42 @@ function initMap() {
 	map.setView([7680, 7680], -5);
 }
 
+// drawPicture draws the part of the map's picture from (x0, z0), span
+// metres across, onto all of the canvas cv (north up). Only what is in view
+// is ever drawn, at the canvas's size: scaling the whole picture up instead
+// (an <img> or SVG <image>) made phones run out of memory and reload the
+// page, since zoomed in it is tens of thousands of pixels across.
+function drawPicture(cv, x0, z0, span) {
+	const ctx = cv.getContext('2d');
+	ctx.clearRect(0, 0, cv.width, cv.height);
+	if (!mapImg || !span) return;
+	const ims = size || 15360, k = mapImg.naturalWidth / ims; // picture px a metre
+	// The view in picture pixels (z grows upward, y downward)...
+	const sx = x0 * k, sy = (ims - z0 - span) * k, ss = span * k;
+	// ...clipped to the picture, and where that lands on the canvas.
+	const cx0 = Math.max(0, sx), cy0 = Math.max(0, sy);
+	const cx1 = Math.min(mapImg.naturalWidth, sx + ss), cy1 = Math.min(mapImg.naturalHeight, sy + ss);
+	if (cx1 <= cx0 || cy1 <= cy0) return;
+	const f = cv.width / ss;
+	ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+	ctx.drawImage(mapImg, cx0, cy0, cx1 - cx0, cy1 - cy0, (cx0 - sx) * f, (cy0 - sy) * f, (cx1 - cx0) * f, (cy1 - cy0) * f);
+}
+
+// PictureLayer shows the map's picture on the big map as 256 px tiles cut
+// from it at each zoom, only those on screen.
+const PictureLayer = L.GridLayer.extend({
+	options: { tileSize: 256, noWrap: true, updateWhenZooming: false, minZoom: -6, maxZoom: 3, className: 'piclayer' },
+	createTile(c) {
+		const t = document.createElement('canvas'), ts = this.getTileSize().x;
+		const dpr = Math.min(window.devicePixelRatio || 1, 2);
+		t.width = t.height = Math.round(ts * dpr);
+		// In CRS.Simple a pixel at zoom z is 2^-z metres; tile y grows south.
+		const m = ts / Math.pow(2, c.z);
+		drawPicture(t, c.x * m, -(c.y + 1) * m, m);
+		return t;
+	},
+});
+
 // setWorld sizes the map and draws its 1 km grid, with the map's picture
 // under it if ReCON's data folder has one (maps/<world>.jpg).
 function setWorld(w, s) {
@@ -461,14 +501,15 @@ function setWorld(w, s) {
 	gridLayer.clearLayers();
 	if (newWorld) {
 		if (imageLayer) { imageLayer.remove(); imageLayer = null; }
-		mapImg = '';
+		mapImg = null;
 		const img = new Image();
 		img.onload = () => {
-			imageLayer = L.imageOverlay(img.src, [[0, 0], [size, size]]).addTo(map); imageLayer.bringToBack();
-			mapImg = img.src; redrawMini();
+			mapImg = img;
+			imageLayer = new PictureLayer({ bounds: [[0, 0], [size, size]] }).addTo(map); imageLayer.bringToBack();
+			redrawMini();
 		};
 		img.src = '/api/mod/map/' + encodeURIComponent(world);
-	} else if (imageLayer) imageLayer.setBounds([[0, 0], [size, size]]);
+	} else if (imageLayer) { imageLayer.options.bounds = L.latLngBounds([[0, 0], [size, size]]); imageLayer.redraw(); }
 	const line = { color: '#2f3a31', weight: 1, interactive: false };
 	for (let g = 0; g <= size; g += 1000) {
 		L.polyline([[0, g], [size, g]], line).addTo(gridLayer);
@@ -817,7 +858,7 @@ function renderPlayer() {
 		save.innerHTML = ''; save.setAttribute('data-n', '');
 		document.getElementById('pChips').innerHTML = '';
 		document.getElementById('miniG').innerHTML = '';
-		document.getElementById('miniImg').setAttribute('visibility', 'hidden');
+		drawMiniPicture(0, 0, 0);
 		['tHands', 'tVehicle', 'tKD'].forEach(id => document.getElementById(id).textContent = '—');
 	}
 	document.getElementById('tKDall').textContent = detail && detail.kills != null ? detail.kills + ' / ' + detail.deaths + ' all time' : '';
@@ -1009,15 +1050,7 @@ function drawMini(p) {
 	if (mini.follow) { mini.cx = p.x; mini.cz = p.z; }
 	const span = mini.span, x0 = mini.cx - span / 2, z0 = mini.cz - span / 2;
 	const px = x => (x - x0) / span * MINI, pz = z => MINI - (z - z0) / span * MINI;
-	// The map's picture under it all, if it has one: one element, moved
-	// rather than redrawn, so the image isn't decoded again every second.
-	const im = document.getElementById('miniImg'), ims = size || 15360;
-	if (mapImg) {
-		if (im.getAttribute('href') !== mapImg) im.setAttribute('href', mapImg);
-		im.setAttribute('x', px(0)); im.setAttribute('y', pz(ims));
-		im.setAttribute('width', px(ims) - px(0)); im.setAttribute('height', pz(0) - pz(ims));
-		im.setAttribute('visibility', 'visible');
-	} else im.setAttribute('visibility', 'hidden');
+	drawMiniPicture(x0, z0, span);
 	const inView = (x, z) => x >= x0 && x <= x0 + span && z >= z0 && z <= z0 + span;
 	// Grid: 10 m very close, 100 m close, 500 m or 1 km further out; every
 	// 100 m (10 m grid) or km brighter.
@@ -1041,6 +1074,15 @@ function drawMini(p) {
 	s.innerHTML = h;
 	document.getElementById('miniScale').textContent = (step >= 1000 ? step / 1000 + ' km' : step + ' m') + ' grid · ' + (span >= 1000 ? (span / 1000).toFixed(1).replace(/\.0$/, '') + ' km' : span + ' m') + ' across';
 	document.getElementById('miniFollow').hidden = mini.follow && mini.span === MINI_HOME;
+}
+// drawMiniPicture draws the map's picture under the mini-map: the part from
+// (x0, z0), span metres across, at the mini-map's size. span 0 clears it.
+function drawMiniPicture(x0, z0, span) {
+	const cv = document.getElementById('miniCv'), svg = document.getElementById('mini');
+	const w = svg.clientWidth, h = svg.clientHeight, dpr = Math.min(window.devicePixelRatio || 1, 3);
+	if (cv.style.width !== w + 'px') { cv.style.width = w + 'px'; cv.style.height = h + 'px'; }
+	if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+	drawPicture(cv, x0, z0, w ? span : 0);
 }
 // miniAt is the map point (x, z) under the pointer.
 function miniAt(e) {

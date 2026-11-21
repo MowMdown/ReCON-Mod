@@ -16,6 +16,15 @@
 :root { --hud-white: rgb(220,220,220); --hud-yellow: rgb(220,220,0); --hud-red: rgb(220,0,0); --hud-lblue: rgb(0,206,209); --hud-blue: rgb(30,144,220); }
 .live { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; height: calc(100vh - 210px); min-height: 420px; }
 @media (max-width: 760px) { .live { grid-template-columns: minmax(0, 1fr); height: auto; } .mapwrap { height: 70vh; } }
+/* A phone held upright: the map first, square (the whole map fits the
+   screen's width), the players under it two to a row. */
+@media (max-width: 760px) and (orientation: portrait) {
+	.live .mapwrap { order: -1; height: auto; min-height: 0; aspect-ratio: 1; max-height: 75svh; }
+	.live .plist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.live .prow { grid-template-columns: 9px minmax(0, 1fr); gap: 7px; padding: 7px 8px; }
+	.live .prow .hb { grid-column: 1 / -1; }
+	.live .plist > .empty { grid-column: 1 / -1; }
+}
 .side { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .modline { display: flex; align-items: center; gap: 8px; color: #aaa; font-size: 13px; }
 .modline .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #81c995; box-shadow: 0 0 6px #81c995; }

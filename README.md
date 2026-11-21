@@ -142,7 +142,10 @@ Map), the next sync's `vehicleDetails` has that vehicle's damage zones
 `deleteVehicle` (`text`: its id) deletes one, not while anyone is in it. `spawnAt` (`text`: a class from the item list, `value`: 1 to 20, `x`, `z`) spawns at a spot on the map: items in a row on the ground, a vehicle whole, facing north (a boat on the water at sea level if the spot is sea), animals in a row 1.5 m apart (recon-mod 0.0.1k on).
 With the vehicles come `worldEvents`: helicopter crashes (`CrashBase`) and
 areas (`EffectArea`: toxic zones), each with `id`, `type`, `kind` (crash,
-gas or area), `x`, `z` and `radius`. When the reply has `wantPlaces` (once
+gas or area), `x`, `z` and `radius`. Every sync has `predators` (recon-mod
+0.0.1l on, with `predatorsSent`): the bears, wolves and guard dogs alive on
+the server, each with `id`, `type`, `kind` (bear, wolf or dog), `x`, `z` and
+`heading`. When the reply has `wantPlaces` (once
 a connection), the next sync has `placesSent: true` and `places`: the
 map's place names from `CfgWorlds <world> Names` (`name`, `type`, `x`, `z`).
 

@@ -9,7 +9,7 @@ const int RECON_PROTOCOL = 1;
 class ReCON_Sync
 {
 	int v = RECON_PROTOCOL;
-	string mod = "0.0.1k";
+	string mod = "0.0.1l";
 	string key;      // the RCON password
 	string world;    // "chernarusplus"
 	int year;        // the in-game date and time
@@ -34,11 +34,25 @@ class ReCON_Sync
 	// The map's dynamic events (helicopter crashes, toxic zones), with the
 	// vehicles.
 	ref array<ref ReCON_WorldEvent> worldEvents = new array<ref ReCON_WorldEvent>();
+	// The bears, wolves and guard dogs alive on the server, every sync
+	// (predatorsSent says this mod sends them).
+	bool predatorsSent;
+	ref array<ref ReCON_Predator> predators = new array<ref ReCON_Predator>();
 	// The map's place names, when the reply asked for them (wantPlaces).
 	bool placesSent;
 	ref array<ref ReCON_Place> places = new array<ref ReCON_Place>();
 	// The vehicles ReCON asked to see inside (the reply's watchVehicles).
 	ref array<ref ReCON_VehicleDetail> vehicleDetails = new array<ref ReCON_VehicleDetail>();
+};
+
+class ReCON_Predator
+{
+	int id;
+	string type;     // class name
+	string kind;     // bear | wolf | dog
+	float x;
+	float z;
+	float heading;   // degrees, 0 = north, clockwise
 };
 
 class ReCON_WorldEvent

@@ -182,6 +182,9 @@ class ReCON_Module : CF_ModuleWorld
 			ReCON_Vehicles.Read(sync.vehicles);
 			ReCON_WorldEvents.Read(sync.worldEvents);
 		}
+		// The predators every sync: they move.
+		sync.predatorsSent = true;
+		ReCON_Predators.Read(sync.predators);
 		if (m_WantPlaces)
 		{
 			m_WantPlaces = false;

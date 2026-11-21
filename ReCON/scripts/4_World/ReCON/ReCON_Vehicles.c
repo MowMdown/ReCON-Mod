@@ -197,7 +197,10 @@ class ReCON_VehicleRemover
 			Transport t = Transport.Cast(m_Vehicle);
 			vector dir = m_Vehicle.GetDirection();
 			vector side = Vector(dir[2], 0, -dir[0]);
-			for (int i = 0; t && i < t.CrewSize(); i++)
+			int seats = 0;
+			if (t)
+				seats = t.CrewSize();
+			for (int i = 0; i < seats; i++)
 			{
 				if (!t.CrewMember(i))
 					continue;

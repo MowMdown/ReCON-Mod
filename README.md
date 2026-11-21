@@ -139,7 +139,7 @@ car, motorbike and boat on the server (`id`, `type`, `name`, `x`, `z`,
 `watchVehicles` (ReCON asks once, when a vehicle is clicked on the Live
 Map), the next sync's `vehicleDetails` has that vehicle's damage zones
 (`name`, `health`) and its parts and cargo (`items`, as in an inventory).
-`deleteVehicle` (`text`: its id) deletes one, not while anyone is in it. From recon-mod 0.0.1m, a `spawn` of a vehicle answers with its persistent ID (`entity` in the result: `b1:b2:b3:b4`, which survives a server restart), and a `spawn` with `replace` (a persistent ID) and `replaceType` (its class) deletes that vehicle once the new one exists, only if both match: whoever is in it is asked to get out, and 3 s later anyone still in is stood 2.5 m beside it; a vehicle already gone is not an error. ReCON uses it for each player's chat car.
+`deleteVehicle` (`text`: its id) deletes one; from 1.0.1 even with people in it (they are asked to get out, and 3 s later anyone still in is stood beside it). From recon-mod 0.0.1m, a `spawn` of a vehicle answers with its persistent ID (`entity` in the result: `b1:b2:b3:b4`, which survives a server restart), and a `spawn` with `replace` (a persistent ID) and `replaceType` (its class) deletes that vehicle once the new one exists, only if both match: whoever is in it is asked to get out, and 3 s later anyone still in is stood 2.5 m beside it; a vehicle already gone is not an error. ReCON uses it for each player's chat car.
 
 From recon-mod 1.0.1:
 

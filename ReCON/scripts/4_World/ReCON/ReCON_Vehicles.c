@@ -177,7 +177,7 @@ class ReCON_Vehicles
 	}
 
 	// Delete removes the vehicle with that id (ReCON_Vehicle.id), and all
-	// it holds; not while anyone is in it.
+	// it holds, whoever is in it: they are put out first (ForceDelete).
 	static string Delete(string idText)
 	{
 		int id = idText.ToInt();
@@ -192,9 +192,7 @@ class ReCON_Vehicles
 		}
 		if (!found)
 			return "that vehicle isn't on the server any more";
-		if (Crew(found) > 0)
-			return "someone is in it";
-		g_Game.ObjectDelete(found);
+		ForceDelete(found);
 		return "";
 	}
 };

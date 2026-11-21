@@ -55,7 +55,7 @@ jobs:
             gh release upload "$GITHUB_REF_NAME" ReCON-Mod.zip --clobber
           else
             gh release create "$GITHUB_REF_NAME" ReCON-Mod.zip --title "$GITHUB_REF_NAME" --verify-tag \
-              --notes "The @ReCON mod folder. Monetized servers need Bohemia Interactive's approval, see NOTICE."
+              --notes "The \`@ReCON\` mod folder. Monetized servers need Bohemia Interactive's approval, see NOTICE."
           fi
       - name: Release (run by hand)
         if: github.event_name == 'workflow_dispatch'
@@ -65,4 +65,4 @@ jobs:
         run: |
           case "$TAG" in v*) ;; *) echo "The tag must start with v"; exit 1 ;; esac
           gh release create "$TAG" ReCON-Mod.zip --target "$(git rev-parse HEAD)" --prerelease --title "$TAG" \
-            --notes "The @ReCON mod folder, built from $(git rev-parse --short=8 HEAD). Monetized servers need Bohemia Interactive's approval, see NOTICE."
+            --notes "The \`@ReCON\` mod folder, built from $(git rev-parse --short=8 HEAD). Monetized servers need Bohemia Interactive's approval, see NOTICE."

@@ -9,7 +9,7 @@ const int RECON_PROTOCOL = 1;
 class ReCON_Sync
 {
 	int v = RECON_PROTOCOL;
-	string mod = "1.0.1";
+	string mod = "1.0.2";
 	string key;      // the RCON password
 	string world;    // "chernarusplus"
 	int year;        // the in-game date and time
@@ -258,6 +258,7 @@ class ReCON_Command
 	string text;     // message
 	string replace;     // spawn: a vehicle (persistent ID) to delete once the new one exists, crew put out first
 	string replaceType; // ...and its class: deleted only if both match
+	ref array<ref ReCON_Item> items; // restore: the items to give back (in the inventory's shape)
 	string title;
 	float seconds;
 	// weather: stat is overcast | rain | fog | snow | windSpeed | windDir (degrees),

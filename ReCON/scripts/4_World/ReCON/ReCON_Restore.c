@@ -9,13 +9,18 @@ class ReCON_Restore
 {
 	protected static ref TStringArray s_Skipped;
 
-	static string Run(PlayerBase p, string json)
+	// Run gives back items (ReCON 3.0.2 on sends them as a list); json is the
+	// older form, the same list as JSON text, still read when there's no list.
+	static string Run(PlayerBase p, array<ref ReCON_Item> given, string json)
 	{
-		array<ref ReCON_Item> items;
-		JsonSerializer js = new JsonSerializer();
-		string err;
-		if (!js.ReadFromString(items, json, err) || !items)
-			return "couldn't read the items: " + err;
+		array<ref ReCON_Item> items = given;
+		if (!items || items.Count() == 0)
+		{
+			JsonSerializer js = new JsonSerializer();
+			string err;
+			if (json == "" || !js.ReadFromString(items, json, err) || !items)
+				return "couldn't read the items: " + err;
+		}
 		s_Skipped = new TStringArray();
 		int n = items.Count();
 		for (int i = 0; i < n; i++)

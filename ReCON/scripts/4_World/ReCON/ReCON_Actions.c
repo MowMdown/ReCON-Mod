@@ -94,7 +94,7 @@ class ReCON_Actions
 				}
 				break;
 			case "restore":
-				err = ReCON_Restore.Run(p, c.text);
+				err = ReCON_Restore.Run(p, c.items, c.text);
 				break;
 			case "condition":
 				err = SetCondition(p, c.text.ToInt(), (int)c.value);

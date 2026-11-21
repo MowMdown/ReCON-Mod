@@ -228,7 +228,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 <body>
 <nav>{{template "navlinks" "live"}}</nav>
 {{template "statusbar" .}}
-<div class="top"><h1>Live Map</h1><button type="button" id="worldBtn" onclick="openWorld()" disabled title="Weather, time and date">World…</button></div>
+<div class="top"><h1>Live Map</h1><button type="button" id="worldBtn" onclick="openWorld()" disabled title="Change the in-game time and weather">Time &amp; Weather</button></div>
 <div class="live">
 	<div class="side">
 		<div class="modline"><span class="dot off" id="modDot"></span><span id="modLine">Waiting for recon-mod...</span></div>
@@ -319,7 +319,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 <!-- The weather and the in-game time -->
 <div id="wModal" class="modal">
 	<div class="box wide" role="dialog" aria-labelledby="wTitle">
-		<div class="dlg-head"><h2 id="wTitle">World</h2><span class="badge" id="wWorld"></span></div>
+		<div class="dlg-head"><h2 id="wTitle">Time &amp; Weather</h2><span class="badge" id="wWorld"></span></div>
 		<div class="wsec first"><h3>Time</h3>
 			<div class="inl">In-game <input type="date" id="wDate" aria-label="In-game date"> <input type="time" id="wTime" aria-label="In-game time">
 				<button type="button" class="go" onclick="setDate()">Set</button><span style="flex:1"></span>

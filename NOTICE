@@ -1,40 +1,52 @@
 ReCON-Mod
 Copyright (c) 2026 MowMdown. Licensed under the MIT License (see LICENSE).
 
-NOT FOR MONETIZED SERVERS. ReCON-Mod must not be used on, or to run,
-support or promote, any DayZ server that makes money: paid access, paid
-priority queue or whitelist, selling in-game items, perks, kits, bases or
-vehicles, donation rewards, or any other paid benefit. Use it only on
-servers that are free to play and earn nothing. This is the author's
-condition of use, stated alongside the MIT licence.
+DAYZ SERVER MONETIZATION NOTICE
 
-This project builds on, or learned from, the following. No source code from
-them is copied into this repository unless stated.
+The MIT License permits the use, modification, and distribution of ReCON-Mod, including for commercial purposes. This permission applies only to the original code authored for ReCON-Mod. It does not grant permission or authorization from Bohemia Interactive a.s. to monetize a DayZ server, nor does it grant permission to monetize other third-party mods or content used on that server.
+
+Operators of monetized DayZ servers are responsible for obtaining all approvals required by Bohemia Interactive and all necessary permissions from the authors of third-party mods and content used on their servers. ReCON-Mod does not provide, imply, or replace any such approval or permission.
+
+Consult Bohemia Interactive's current monetization policy before monetizing a DayZ server:
+https://www.bohemia.net/en/monetization/dayz
+
+
+THIRD-PARTY SOFTWARE, REFERENCES, AND ATTRIBUTION
 
 DayZ (Bohemia Interactive a.s.)
-  ReCON-Mod is a DayZ mod: its scripts call DayZ's script API, and it uses
-  values from DayZ's scripts (the HUD's stat and temperature thresholds and
-  colours in PlayerConstants and the in-game HUD, the player stat ranges).
-  DayZ's scripts are published under the DayZ Public License (DPL):
-  attribution, non-commercial use only, DayZ only.
-  https://www.bohemia.net/community/licenses/dayz-public-license-dpl
-  DAYZ, ENFUSION and BOHEMIA INTERACTIVE are registered trademarks of
-  Bohemia Interactive a.s. This project is not made or endorsed by them.
+
+ReCON-Mod is a modification for DayZ and uses the DayZ script API. Certain game-related values and references used by ReCON-Mod are based on information found in DayZ scripts, including player stat ranges, HUD stat and temperature thresholds, and associated colors.
+
+Any DayZ-owned code or other copyrightable material incorporated into or adapted within this project remains subject to its applicable Bohemia Interactive license and is not relicensed under the MIT License. The DayZ Public License (DPL) includes attribution, non-commercial, and DayZ-only conditions for material distributed under that license. Those conditions continue to apply to any DPL-licensed material used in this project, where applicable.
+
+DayZ Public License:
+https://www.bohemia.net/en/licenses/dayz-public-license-dpl
+
+DAYZ, ENFUSION, and BOHEMIA INTERACTIVE are trademarks of Bohemia Interactive a.s. ReCON-Mod is an independent community project and is not affiliated with, endorsed by, or sponsored by Bohemia Interactive.
+
 
 Community Framework (CF), by Jacob_Mango and Arkensor
-  A dependency, loaded on the server alongside ReCON-Mod (not included in
-  this repository). Licensed under the GNU LGPL 2.1.
-  https://github.com/Jacob-Mango/DayZ-Community-Framework
+
+Community Framework is an external dependency used by ReCON-Mod. It is loaded separately alongside ReCON-Mod and is not included in this repository.
+
+Community Framework is licensed under the GNU Lesser General Public License, version 2.1 (LGPL-2.1). Its license and applicable obligations remain independent of ReCON-Mod's MIT License.
+
+https://github.com/Jacob-Mango/DayZ-Community-Framework
+
 
 Community Online Tools (COT), by Jacob_Mango and contributors
-  ReCON-Mod's heal action and its weather and time controls are modelled
-  on how COT does them (making an invulnerable player vulnerable while
-  healing, ending illness symptoms and waking a knocked-out player; the
-  three weather modes and freezing time). They were written for ReCON-Mod
-  using DayZ's own script API; no COT code is copied. COT is licensed under
-  Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
-  https://github.com/Jacob-Mango/DayZ-CommunityOnlineTools
+
+Community Online Tools was used as a functional and implementation reference for certain features in ReCON-Mod, including healing behavior and weather and time controls. These features were independently implemented using the DayZ script API. No COT source code or assets are intentionally incorporated into ReCON-Mod.
+
+Community Online Tools is licensed under the Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0). This attribution identifies COT as a reference project and does not indicate that COT code or assets are included in ReCON-Mod.
+
+https://github.com/Jacob-Mango/DayZ-CommunityOnlineTools
+
 
 Leaflet (used by the Live Map page, served by ReCON)
-  BSD 2-Clause License, Copyright (c) 2010-2023, Volodymyr Agafonkin.
-  ReCON includes it with its licence file (internal/web/assets/leaflet).
+
+Leaflet is used by ReCON and distributed with the Live Map page.
+
+Copyright (c) 2010-2023, Volodymyr Agafonkin.
+
+Leaflet is licensed under the BSD 2-Clause License. Its license and copyright notice are included with the Leaflet distribution in internal/web/assets/leaflet.

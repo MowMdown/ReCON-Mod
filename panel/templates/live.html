@@ -228,7 +228,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 <body>
 <nav>{{template "navlinks" "live"}}</nav>
 {{template "statusbar" .}}
-<div class="top"><h1>Live Map</h1></div>
+<div class="top"><h1>Live Map</h1><button type="button" id="worldBtn" onclick="openWorld()" disabled title="Weather, time and date">World…</button></div>
 <div class="live">
 	<div class="side">
 		<div class="modline"><span class="dot off" id="modDot"></span><span id="modLine">Waiting for recon-mod...</span></div>
@@ -242,7 +242,6 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 			<span class="badge" id="timeBadge" hidden></span>
 			<span class="sp"></span>
 			<button type="button" onclick="fitAll()" title="Show the whole map">Fit</button>
-			<button type="button" id="worldBtn" onclick="openWorld()" disabled>World…</button>
 		</div>
 	</div>
 </div>

@@ -177,7 +177,11 @@ The **Live Map** page (`/live`, in the nav after Server Info):
   terrain under it, put a picture of the whole map (square, north up) in
   ReCON's data folder as `maps/<world>.jpg` (or `.png`, `.webp`), such as
   `maps/chernarusplus.jpg`: [satmap](#map-pictures-satmap) makes one from
-  the map's own files. Above it: the weather and the in-game time.
+  the map's own files. ReCON serves a `.jpg` or `.png` to the page in
+  256 px tiles, cut the first time they're viewed and kept in the data
+  folder's `maptiles` folder, so a browser (or a phone) only loads the
+  part on screen, at the size the zoom needs; the `maps` folder can be
+  read-only. Above the map: the weather and the in-game time.
 - **Clicking a player** opens their stats. Drag Health, Blood, Water, Food or
   Comfort left or right to set it (shock, stamina and temperature are read
   only). They show health, blood, water and food in

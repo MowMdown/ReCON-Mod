@@ -492,6 +492,70 @@ const PictureLayer = L.GridLayer.extend({
 	},
 });
 
+// loadPicture puts the map's picture under the grid, if ReCON's data folder
+// has one: as tiles ReCON cuts from it, so only what is on screen loads, at
+// the size the zoom needs (tiles); or, for a .webp ReCON can't cut, the
+// whole picture (mapImg) drawn in tiles here.
+let tiles = null; // { url(z, x, y), maxNativeZoom } while tiled
+function loadPicture() {
+	if (imageLayer) { imageLayer.remove(); imageLayer = null; }
+	mapImg = null; tiles = null; tileCache.clear();
+	const w = world, s = size, bounds = [[0, 0], [s, s]];
+	api('GET', '/api/mod/map/' + encodeURIComponent(w) + '/info?size=' + s).then(info => {
+		if (w !== world || s !== size) return;
+		const base = '/api/mod/maptile/' + encodeURIComponent(w) + '/' + info.version + '/' + s + '/';
+		tiles = { url: (z, x, y) => base + z + '/' + x + '/' + y, maxNativeZoom: info.maxNativeZoom };
+		imageLayer = L.tileLayer(base + '{z}/{x}/{y}', { tileSize: 256, minZoom: -6, maxZoom: 3, minNativeZoom: -6, maxNativeZoom: info.maxNativeZoom, bounds, noWrap: true, keepBuffer: 2 }).addTo(map);
+		imageLayer.bringToBack();
+		redrawMini();
+	}).catch(() => {
+		const img = new Image();
+		img.onload = () => {
+			if (w !== world || s !== size) return;
+			mapImg = img;
+			imageLayer = new PictureLayer({ bounds }).addTo(map); imageLayer.bringToBack();
+			redrawMini();
+		};
+		img.src = '/api/mod/map/' + encodeURIComponent(w);
+	});
+}
+
+// tileCache holds the mini-map's tiles (Images) by URL, the newest last.
+const tileCache = new Map();
+function tileImage(url) {
+	let im = tileCache.get(url);
+	if (im) { tileCache.delete(url); tileCache.set(url, im); return im.complete && im.naturalWidth ? im : null; }
+	im = new Image();
+	im.onload = () => redrawMiniSoon();
+	im.src = url;
+	tileCache.set(url, im);
+	while (tileCache.size > 200) tileCache.delete(tileCache.keys().next().value);
+	return null;
+}
+let miniSoon = 0;
+function redrawMiniSoon() { if (!miniSoon) miniSoon = setTimeout(() => { miniSoon = 0; redrawMini(); }, 50); }
+
+// drawTiles draws the map's tiles for the view from (x0, z0), span metres
+// across, onto all of the canvas cv: a coarse level first (few tiles, there
+// at once), then the level that matches the canvas over it.
+function drawTiles(cv, x0, z0, span) {
+	const ctx = cv.getContext('2d');
+	ctx.clearRect(0, 0, cv.width, cv.height);
+	if (!tiles || !span) return;
+	const f = cv.width / span; // canvas px a metre
+	const fine = Math.max(-6, Math.min(tiles.maxNativeZoom, Math.ceil(Math.log2(f))));
+	ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+	for (const z of new Set([Math.max(-6, fine - 3), fine])) {
+		const m = 256 / Math.pow(2, z), n = Math.ceil(size / m); // tile metres; tiles across
+		for (let x = Math.max(0, Math.floor(x0 / m)); x <= Math.min(n - 1, Math.floor((x0 + span) / m)); x++) {
+			for (let y = Math.max(-n, Math.floor(-(z0 + span) / m)); y <= Math.min(-1, Math.floor(-z0 / m)); y++) {
+				const im = tileImage(tiles.url(z, x, y));
+				if (im) ctx.drawImage(im, (x * m - x0) * f, (z0 + span + y * m) * f, m * f + 0.5, m * f + 0.5);
+			}
+		}
+	}
+}
+
 // setWorld sizes the map and draws its 1 km grid, with the map's picture
 // under it if ReCON's data folder has one (maps/<world>.jpg).
 function setWorld(w, s) {
@@ -499,17 +563,7 @@ function setWorld(w, s) {
 	const newWorld = w !== world;
 	world = w; size = s;
 	gridLayer.clearLayers();
-	if (newWorld) {
-		if (imageLayer) { imageLayer.remove(); imageLayer = null; }
-		mapImg = null;
-		const img = new Image();
-		img.onload = () => {
-			mapImg = img;
-			imageLayer = new PictureLayer({ bounds: [[0, 0], [size, size]] }).addTo(map); imageLayer.bringToBack();
-			redrawMini();
-		};
-		img.src = '/api/mod/map/' + encodeURIComponent(world);
-	} else if (imageLayer) { imageLayer.options.bounds = L.latLngBounds([[0, 0], [size, size]]); imageLayer.redraw(); }
+	loadPicture();
 	const line = { color: '#2f3a31', weight: 1, interactive: false };
 	for (let g = 0; g <= size; g += 1000) {
 		L.polyline([[0, g], [size, g]], line).addTo(gridLayer);
@@ -1082,7 +1136,8 @@ function drawMiniPicture(x0, z0, span) {
 	const w = svg.clientWidth, h = svg.clientHeight, dpr = Math.min(window.devicePixelRatio || 1, 3);
 	if (cv.style.width !== w + 'px') { cv.style.width = w + 'px'; cv.style.height = h + 'px'; }
 	if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
-	drawPicture(cv, x0, z0, w ? span : 0);
+	if (tiles) drawTiles(cv, x0, z0, w ? span : 0);
+	else drawPicture(cv, x0, z0, w ? span : 0);
 }
 // miniAt is the map point (x, z) under the pointer.
 function miniAt(e) {

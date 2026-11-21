@@ -199,11 +199,11 @@ class ReCON_Module : CF_ModuleWorld
 		{
 			m_PlacedAt = m_SinceStart;
 			sync.placedSent = true;
-			ReCON_Placed.Read(sync.placed);
+			ReCON_PlacedObjects.Read(sync.placed);
 		}
 		foreach (int oid : m_WatchPlaced)
 		{
-			ReCON_PlacedDetail od = ReCON_Placed.Detail(oid);
+			ReCON_PlacedDetail od = ReCON_PlacedObjects.Detail(oid);
 			if (od)
 				sync.placedDetails.Insert(od);
 		}

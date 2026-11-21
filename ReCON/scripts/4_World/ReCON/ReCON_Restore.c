@@ -27,14 +27,14 @@ class ReCON_Restore
 
 	protected static string JoinSkipped()
 	{
-		string out = "";
+		string names = "";
 		foreach (string t : s_Skipped)
 		{
-			if (out != "")
-				out += ", ";
-			out += t;
+			if (names != "")
+				names += ", ";
+			names += t;
 		}
-		return out;
+		return names;
 	}
 
 	// Make creates it (on parent when there is one: attached, or in its

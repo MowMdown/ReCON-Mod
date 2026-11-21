@@ -1,10 +1,10 @@
-// ReCON_Placed keeps the objects players placed, for the Live Map's Placed
+// ReCON_PlacedObjects keeps the objects players placed, for the Live Map's Placed
 // objects layer: base building and pitched tents always (also ones from
 // before this mod version), and anything else once a player places it.
 // Who placed it, and when, is recorded at placing and saved with the object
 // (CF mod storage), so it survives a restart. An object picked up again (in
 // someone's inventory) isn't sent.
-class ReCON_Placed
+class ReCON_PlacedObjects
 {
 	protected static ref array<EntityAI> s_All = new array<EntityAI>();
 
@@ -125,12 +125,12 @@ modded class ItemBase
 	{
 		super.EEInit();
 		if (BaseBuildingBase.Cast(this) || TentBase.Cast(this))
-			ReCON_Placed.Add(this);
+			ReCON_PlacedObjects.Add(this);
 	}
 
 	override void EEDelete(EntityAI parent)
 	{
-		ReCON_Placed.Remove(this);
+		ReCON_PlacedObjects.Remove(this);
 		super.EEDelete(parent);
 	}
 
@@ -146,7 +146,7 @@ modded class ItemBase
 			m_ReCON_PlacerId = pb.GetIdentity().GetPlainId();
 		}
 		m_ReCON_PlacedAt = CF_Date.Now(true).GetTimestamp();
-		ReCON_Placed.Add(this);
+		ReCON_PlacedObjects.Add(this);
 	}
 
 	override void CF_OnStoreSave(CF_ModStorageMap storage)
@@ -174,7 +174,7 @@ modded class ItemBase
 		if (!ctx.Read(m_ReCON_PlacedAt))
 			return false;
 		if (m_ReCON_PlacerId != "")
-			ReCON_Placed.Add(this);
+			ReCON_PlacedObjects.Add(this);
 		return true;
 	}
 };

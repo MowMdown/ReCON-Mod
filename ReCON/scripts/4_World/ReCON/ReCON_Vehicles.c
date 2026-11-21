@@ -118,7 +118,7 @@ class ReCON_Vehicles
 	{
 		EntityAI e = ByPersistentID(pid);
 		if (!e)
-			e = ReCON_Placed.ByPersistentID(pid);
+			e = ReCON_PlacedObjects.ByPersistentID(pid);
 		if (!e)
 			return "it's already gone";
 		if (e.GetType() != type)

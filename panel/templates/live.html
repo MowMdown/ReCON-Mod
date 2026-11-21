@@ -443,9 +443,6 @@ async function poll() {
 const SIZES = { chernarusplus: 15360, enoch: 12800, namalsk: 12800, deerisle: 16384, sakhal: 15360, esseker: 12800, takistanplus: 12800, banov: 15360, chiemsee: 10240, pripyat: 20480, rostow: 14336, iztek: 8192, alteria: 8192 };
 const NAMES = { chernarusplus: 'Chernarus', enoch: 'Livonia', namalsk: 'Namalsk', deerisle: 'Deer Isle', sakhal: 'Sakhal', esseker: 'Esseker', takistanplus: 'Takistan', banov: 'Banov', chiemsee: 'Chiemsee', pripyat: 'Pripyat', rostow: 'Rostow', iztek: 'Iztek', alteria: 'Alteria', nasdara: 'Nasdara' };
 let map, size = 0, world = '', gridLayer, labelLayer, imageLayer, markers = {}, fitted = false;
-// mapImg is the world's picture once it has loaded (the mini-map draws it
-// too), or null while there is none.
-let mapImg = null;
 
 function initMap() {
 	map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 3, zoomSnap: 0.25, attributionControl: false, zoomControl: false });
@@ -456,29 +453,66 @@ function initMap() {
 	map.setView([7680, 7680], -5);
 }
 
-// drawPicture draws the part of the map's picture from (x0, z0), span
-// metres across, onto all of the canvas cv (north up). Only what is in view
-// is ever drawn, at the canvas's size: scaling the whole picture up instead
-// (an <img> or SVG <image>) made phones run out of memory and reload the
-// page, since zoomed in it is tens of thousands of pixels across.
-function drawPicture(cv, x0, z0, span) {
-	const ctx = cv.getContext('2d');
-	ctx.clearRect(0, 0, cv.width, cv.height);
-	if (!mapImg || !span) return;
-	const ims = size || 15360, k = mapImg.naturalWidth / ims; // picture px a metre
-	// The view in picture pixels (z grows upward, y downward)...
-	const sx = x0 * k, sy = (ims - z0 - span) * k, ss = span * k;
-	// ...clipped to the picture, and where that lands on the canvas.
-	const cx0 = Math.max(0, sx), cy0 = Math.max(0, sy);
-	const cx1 = Math.min(mapImg.naturalWidth, sx + ss), cy1 = Math.min(mapImg.naturalHeight, sy + ss);
-	if (cx1 <= cx0 || cy1 <= cy0) return;
-	const f = cv.width / ss;
-	ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-	ctx.drawImage(mapImg, cx0, cy0, cx1 - cx0, cy1 - cy0, (cx0 - sx) * f, (cy0 - sy) * f, (cx1 - cx0) * f, (cy1 - cy0) * f);
+// The map's picture: tiles sliced ahead of time, maps/<world>/<column>_<row>.jpg
+// (column 0 west, row 0 north), loaded only as the view needs them, and/or
+// a whole-map picture, maps/<world>.jpg. With both, the whole picture is a
+// small overview: drawn zoomed out (where the tiles would all be in view)
+// and under tiles still loading; the tiles only once zoomed in past its
+// detail. Either way only what is in view is drawn, at screen size: scaling
+// a whole picture up instead (an <img> or SVG <image>) made phones run out
+// of memory and reload the page.
+let pic = null; // { cols, rows, url(col, row) } for tiles, img for the whole picture
+
+// srcCache holds the loaded tiles by URL, the most recently used last.
+const srcCache = new Map();
+// srcImage is the tile at url once it has loaded, else null: it starts
+// loading it, and calls again() when it has.
+function srcImage(url, again) {
+	let im = srcCache.get(url);
+	if (im) srcCache.delete(url);
+	else { im = new Image(); im.decoding = 'async'; im.src = url; }
+	srcCache.set(url, im);
+	while (srcCache.size > 64) srcCache.delete(srcCache.keys().next().value);
+	if (im.complete && im.naturalWidth) return im;
+	if (again) im.addEventListener('load', again, { once: true });
+	return null;
 }
 
-// PictureLayer shows the map's picture on the big map as 256 px tiles cut
-// from it at each zoom, only those on screen.
+// drawPicture draws the map's picture from (x0, z0), span metres across,
+// onto all of the canvas cv (north up); again() is called when a tile it
+// needed has loaded, to draw it again.
+function drawPicture(cv, x0, z0, span, again) {
+	const ctx = cv.getContext('2d');
+	ctx.clearRect(0, 0, cv.width, cv.height);
+	if (!pic || !span) return;
+	const S = size || 15360, f = cv.width / span; // canvas px a metre
+	ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+	// put draws image im, covering the map from (ix, iTop) w × h metres
+	// (iTop its north edge), clipped to the canvas.
+	const put = (im, ix, iTop, w, h) => {
+		const vx0 = Math.max(x0, ix), vx1 = Math.min(x0 + span, ix + w);
+		const vt = Math.min(z0 + span, iTop), vb = Math.max(z0, iTop - h);
+		if (vx1 <= vx0 || vt <= vb) return;
+		const kx = im.naturalWidth / w, ky = im.naturalHeight / h; // image px a metre
+		ctx.drawImage(im, (vx0 - ix) * kx, (iTop - vt) * ky, (vx1 - vx0) * kx, (vt - vb) * ky,
+			(vx0 - x0) * f, (z0 + span - vt) * f, (vx1 - vx0) * f + 0.5, (vt - vb) * f + 0.5);
+	};
+	if (pic.img) put(pic.img, 0, S, S, S);
+	if (!pic.cols || (pic.img && f <= pic.img.naturalWidth / S)) return; // the overview is enough
+	const W = S / pic.cols, H = S / pic.rows;
+	const c0 = Math.max(0, Math.floor(x0 / W)), c1 = Math.min(pic.cols - 1, Math.floor((x0 + span) / W));
+	const r0 = Math.max(0, Math.floor((S - z0 - span) / H)), r1 = Math.min(pic.rows - 1, Math.floor((S - z0) / H));
+	for (let r = r0; r <= r1; r++) {
+		for (let c = c0; c <= c1; c++) {
+			const im = srcImage(pic.url(c, r), again);
+			if (im) put(im, c * W, S - r * H, W, H);
+		}
+	}
+}
+
+// PictureLayer shows the map's picture on the big map as 256 px canvas
+// tiles, made only for what is on screen and just around it (Leaflet's
+// keepBuffer), which load the picture's tiles they cover.
 const PictureLayer = L.GridLayer.extend({
 	options: { tileSize: 256, noWrap: true, updateWhenZooming: false, minZoom: -6, maxZoom: 3, className: 'piclayer' },
 	createTile(c) {
@@ -486,75 +520,44 @@ const PictureLayer = L.GridLayer.extend({
 		const dpr = Math.min(window.devicePixelRatio || 1, 2);
 		t.width = t.height = Math.round(ts * dpr);
 		// In CRS.Simple a pixel at zoom z is 2^-z metres; tile y grows south.
-		const m = ts / Math.pow(2, c.z);
-		drawPicture(t, c.x * m, -(c.y + 1) * m, m);
+		const m = ts / Math.pow(2, c.z), x0 = c.x * m, z0 = -(c.y + 1) * m;
+		const again = () => { if (t.isConnected) drawPicture(t, x0, z0, m, again); };
+		drawPicture(t, x0, z0, m, again);
 		return t;
 	},
 });
 
-// loadPicture puts the map's picture under the grid, if ReCON's data folder
-// has one: as tiles ReCON cuts from it, so only what is on screen loads, at
-// the size the zoom needs (tiles); or, for a .webp ReCON can't cut, the
-// whole picture (mapImg) drawn in tiles here.
-let tiles = null; // { url(z, x, y), maxNativeZoom } while tiled
+// loadPicture puts the map's picture under the grid: the tiles in
+// maps/<world>/ if there are any, else maps/<world>.jpg if there is one.
 function loadPicture() {
 	if (imageLayer) { imageLayer.remove(); imageLayer = null; }
-	mapImg = null; tiles = null; tileCache.clear();
-	const w = world, s = size, bounds = [[0, 0], [s, s]];
-	api('GET', '/api/mod/map/' + encodeURIComponent(w) + '/info?size=' + s).then(info => {
-		if (w !== world || s !== size) return;
-		const base = '/api/mod/maptile/' + encodeURIComponent(w) + '/' + info.version + '/' + s + '/';
-		tiles = { url: (z, x, y) => base + z + '/' + x + '/' + y, maxNativeZoom: info.maxNativeZoom };
-		imageLayer = L.tileLayer(base + '{z}/{x}/{y}', { tileSize: 256, minZoom: -6, maxZoom: 3, minNativeZoom: -6, maxNativeZoom: info.maxNativeZoom, bounds, noWrap: true, keepBuffer: 2 }).addTo(map);
-		imageLayer.bringToBack();
+	pic = null; srcCache.clear();
+	const w = world, bounds = [[0, 0], [size, size]];
+	const show = p => {
+		if (w !== world) return;
+		pic = p;
+		imageLayer = new PictureLayer({ bounds }).addTo(map); imageLayer.bringToBack();
 		redrawMini();
-	}).catch(() => {
-		const img = new Image();
-		img.onload = () => {
-			if (w !== world || s !== size) return;
-			mapImg = img;
-			imageLayer = new PictureLayer({ bounds }).addTo(map); imageLayer.bringToBack();
-			redrawMini();
-		};
-		img.src = '/api/mod/map/' + encodeURIComponent(w);
-	});
-}
-
-// tileCache holds the mini-map's tiles (Images) by URL, the newest last.
-const tileCache = new Map();
-function tileImage(url) {
-	let im = tileCache.get(url);
-	if (im) { tileCache.delete(url); tileCache.set(url, im); return im.complete && im.naturalWidth ? im : null; }
-	im = new Image();
-	im.onload = () => redrawMiniSoon();
-	im.src = url;
-	tileCache.set(url, im);
-	while (tileCache.size > 200) tileCache.delete(tileCache.keys().next().value);
-	return null;
+	};
+	// The tiles' list and the whole picture both load; the map shows as soon
+	// as one has, and draws again when the other does.
+	const got = p => {
+		if (w !== world) return;
+		if (!pic) { show(Object.assign({}, p)); return; }
+		Object.assign(pic, p);
+		if (imageLayer) imageLayer.redraw();
+		redrawMini();
+	};
+	api('GET', '/api/mod/map/' + encodeURIComponent(w) + '/tiles').then(t => {
+		const base = '/api/mod/map/' + encodeURIComponent(w) + '/tile/';
+		got({ cols: t.cols, rows: t.rows, url: (c, r) => base + c + '_' + r + '.' + t.ext + '?v=' + t.version });
+	}).catch(() => { });
+	const img = new Image();
+	img.onload = () => got({ img });
+	img.src = '/api/mod/map/' + encodeURIComponent(w);
 }
 let miniSoon = 0;
 function redrawMiniSoon() { if (!miniSoon) miniSoon = setTimeout(() => { miniSoon = 0; redrawMini(); }, 50); }
-
-// drawTiles draws the map's tiles for the view from (x0, z0), span metres
-// across, onto all of the canvas cv: a coarse level first (few tiles, there
-// at once), then the level that matches the canvas over it.
-function drawTiles(cv, x0, z0, span) {
-	const ctx = cv.getContext('2d');
-	ctx.clearRect(0, 0, cv.width, cv.height);
-	if (!tiles || !span) return;
-	const f = cv.width / span; // canvas px a metre
-	const fine = Math.max(-6, Math.min(tiles.maxNativeZoom, Math.ceil(Math.log2(f))));
-	ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-	for (const z of new Set([Math.max(-6, fine - 3), fine])) {
-		const m = 256 / Math.pow(2, z), n = Math.ceil(size / m); // tile metres; tiles across
-		for (let x = Math.max(0, Math.floor(x0 / m)); x <= Math.min(n - 1, Math.floor((x0 + span) / m)); x++) {
-			for (let y = Math.max(-n, Math.floor(-(z0 + span) / m)); y <= Math.min(-1, Math.floor(-z0 / m)); y++) {
-				const im = tileImage(tiles.url(z, x, y));
-				if (im) ctx.drawImage(im, (x * m - x0) * f, (z0 + span + y * m) * f, m * f + 0.5, m * f + 0.5);
-			}
-		}
-	}
-}
 
 // setWorld sizes the map and draws its 1 km grid, with the map's picture
 // under it if ReCON's data folder has one (maps/<world>.jpg).
@@ -1136,8 +1139,7 @@ function drawMiniPicture(x0, z0, span) {
 	const w = svg.clientWidth, h = svg.clientHeight, dpr = Math.min(window.devicePixelRatio || 1, 3);
 	if (cv.style.width !== w + 'px') { cv.style.width = w + 'px'; cv.style.height = h + 'px'; }
 	if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
-	if (tiles) drawTiles(cv, x0, z0, w ? span : 0);
-	else drawPicture(cv, x0, z0, w ? span : 0);
+	drawPicture(cv, x0, z0, w ? span : 0, redrawMiniSoon);
 }
 // miniAt is the map point (x, z) under the pointer.
 function miniAt(e) {

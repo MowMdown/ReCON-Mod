@@ -177,11 +177,9 @@ The **Live Map** page (`/live`, in the nav after Server Info):
   terrain under it, put a picture of the whole map (square, north up) in
   ReCON's data folder as `maps/<world>.jpg` (or `.png`, `.webp`), such as
   `maps/chernarusplus.jpg`: [satmap](#map-pictures-satmap) makes one from
-  the map's own files. ReCON serves a `.jpg` or `.png` to the page in
-  256 px tiles, cut the first time they're viewed and kept in the data
-  folder's `maptiles` folder, so a browser (or a phone) only loads the
-  part on screen, at the size the zoom needs; the `maps` folder can be
-  read-only. Above the map: the weather and the in-game time.
+  the map's own files. For a big picture, slice it into tiles too (see
+  below): the page then loads only the tiles in view. Above the map: the
+  weather and the in-game time.
 - **Clicking a player** opens their stats. Drag Health, Blood, Water, Food or
   Comfort left or right to set it (shock, stamina and temperature are read
   only). They show health, blood, water and food in
@@ -234,7 +232,22 @@ satmap "C:\Program Files (x86)\Steam\steamapps\common\DayZ\!Workshop\@Namalsk Is
   seconds.
 
 Put the picture in ReCON's data folder as `maps/<world>.jpg` (with Docker,
-the `maps` folder next to the database). It comes from the game's or the
+the `maps` folder next to the database).
+
+**Tiles.** A whole picture loads in full on every visit, which is heavy on
+a phone. Slice it into a square grid of tiles in `maps/<world>/`, named
+`<column>_<row>.jpg` (column 0 at the west edge, row 0 at the north; `.png`
+and `.webp` work too), and the page loads only the tiles in view and just
+around it. ImageMagick slices it 16 × 16:
+
+```
+magick chernarusplus.jpg -crop 16x16@ -set filename:t "%[fx:page.x/w]_%[fx:page.y/h]" +repage "maps/chernarusplus/%[filename:t].jpg"
+```
+
+Keep a small `maps/<world>.jpg` too (2048 or 4096 px: `magick
+chernarusplus.jpg -resize 4096x4096 maps/chernarusplus.jpg`): zoomed out,
+when the whole map is in view, the page draws that instead of every tile,
+and it shows under tiles that are still loading. It comes from the game's or the
 map mod's files: use it on your own ReCON, but don't share or publish it.
 
 ### The API

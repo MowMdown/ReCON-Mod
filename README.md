@@ -139,7 +139,7 @@ car, motorbike and boat on the server (`id`, `type`, `name`, `x`, `z`,
 `watchVehicles` (ReCON asks once, when a vehicle is clicked on the Live
 Map), the next sync's `vehicleDetails` has that vehicle's damage zones
 (`name`, `health`) and its parts and cargo (`items`, as in an inventory).
-`deleteVehicle` (`text`: its id) deletes one, not while anyone is in it.
+`deleteVehicle` (`text`: its id) deletes one, not while anyone is in it. `spawnAt` (`text`: a class from the item list, `value`: 1 to 20, `x`, `z`) spawns at a spot on the map: items in a row on the ground, a vehicle whole, facing north (a boat on the water at sea level if the spot is sea).
 With the vehicles come `worldEvents`: helicopter crashes (`CrashBase`) and
 areas (`EffectArea`: toxic zones), each with `id`, `type`, `kind` (crash,
 gas or area), `x`, `z` and `radius`. When the reply has `wantPlaces` (once

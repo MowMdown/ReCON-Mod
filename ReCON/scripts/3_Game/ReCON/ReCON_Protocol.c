@@ -9,7 +9,7 @@ const int RECON_PROTOCOL = 1;
 class ReCON_Sync
 {
 	int v = RECON_PROTOCOL;
-	string mod = "0.0.1i";
+	string mod = "0.0.1j";
 	string key;      // the RCON password
 	string world;    // "chernarusplus"
 	int year;        // the in-game date and time
@@ -199,7 +199,8 @@ class ReCON_Event
 class ReCON_Command
 {
 	int id;
-	// On the server: deleteVehicle (text: its id).
+	// On the server: deleteVehicle (text: its id), spawnAt (text: the class,
+	// value: how many, x, z: where; a vehicle is one, whole).
 	// On a player: heal | dry | kill | teleport | teleportTo | set | message | spawn |
 	// condition (text: the item's id, value: 0 pristine to 4 ruined).
 	// On the world: weather | weatherMode | storm | rainThresholds | date | freezeTime.

@@ -5,6 +5,13 @@ class ReCON_Actions
 	{
 		ReCON_Result r = new ReCON_Result();
 		r.id = c.id;
+		if (c.action == "spawnAt")
+		{
+			r.error = SpawnAt(c.text, c.value, c.x, c.z);
+			r.ok = r.error == "";
+			ReCON_Log.Info(c.action + " " + c.text + " at " + c.x + ", " + c.z + ": " + ResultText(r));
+			return r;
+		}
 		if (c.action == "deleteVehicle")
 		{
 			r.error = ReCON_Vehicles.Delete(c.text);
@@ -297,6 +304,51 @@ class ReCON_Actions
 			flags = ECE_KEEPHEIGHT;
 		else
 			at[1] = g_Game.SurfaceY(at[0], at[2]);
+		return SpawnVehicleAt(type, at, dir, flags);
+	}
+
+	// SpawnAt makes count of type (one, if a vehicle) at x, z on the map:
+	// items in a little cluster on the ground, a vehicle whole facing north
+	// (a boat on the water there, at sea level, if it is sea).
+	static string SpawnAt(string type, float count, float x, float z)
+	{
+		if (!ReCON_Catalog.Spawnable(type))
+			return type + " isn't an item this server can spawn";
+		if (x <= 0 || z <= 0)
+			return "no position";
+		vector at = Vector(x, g_Game.SurfaceY(x, z), z);
+		if (g_Game.IsKindOf(type, "Transport"))
+		{
+			int flags = ECE_PLACE_ON_SURFACE;
+			if (g_Game.IsKindOf(type, "Boat") && g_Game.SurfaceIsSea(x, z))
+			{
+				at[1] = g_Game.SurfaceGetSeaLevel();
+				flags = ECE_KEEPHEIGHT;
+			}
+			return SpawnVehicleAt(type, at, Vector(0, 0, 1), flags);
+		}
+		int n = (int)count;
+		if (n < 1)
+			n = 1;
+		if (n > 20)
+			n = 20;
+		for (int i = 0; i < n; i++)
+		{
+			// A row west to east, 0.4 m apart.
+			vector it = at + Vector((i - (n - 1) / 2.0) * 0.4, 0, 0);
+			it[1] = g_Game.SurfaceY(it[0], it[2]);
+			EntityAI e = EntityAI.Cast(g_Game.CreateObjectEx(type, it, ECE_PLACE_ON_SURFACE));
+			if (!e)
+				return "the game couldn't create " + type;
+			FillUp(e);
+		}
+		return "";
+	}
+
+	// SpawnVehicleAt makes one of type at at, facing dir, whole (see
+	// SpawnVehicle).
+	static string SpawnVehicleAt(string type, vector at, vector dir, int flags)
+	{
 		EntityAI v = EntityAI.Cast(g_Game.CreateObjectEx(type, at, flags));
 		if (!v)
 			return "the game couldn't create " + type;

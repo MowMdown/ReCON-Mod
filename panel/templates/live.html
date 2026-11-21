@@ -151,7 +151,7 @@ table.dt a { color: #8ab4f8; text-decoration: none; cursor: pointer; }
 .dfoot { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; gap: 10px; }
 .dfoot button { margin: 0; }
 .dlg-err { color: #f28b82; font-size: 13px; min-height: 1.2em; margin-top: 8px; }
-/* The player dialog's tabs: Stats, and Inventory & items */
+/* The player dialog's tabs: Stats, Inventory, and Spawn item */
 .ptabs { display: flex; gap: 2px; border-bottom: 1px solid #444; margin: 4px 0 14px; }
 .ptabs button { margin: 0 0 -1px; padding: 7px 14px; font-size: 13px; color: #aaa; background: none; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; cursor: pointer; }
 .ptabs button:hover { color: #eee; }
@@ -256,7 +256,8 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 		<div class="liveline"><span id="pWhen"></span><span class="pos" id="pPos"></span></div>
 		<div class="ptabs" id="pTabs" role="tablist">
 			<button type="button" role="tab" data-ptab="stats">Stats</button>
-			<button type="button" role="tab" data-ptab="items">Inventory &amp; items</button>
+			<button type="button" role="tab" data-ptab="inventory">Inventory</button>
+			<button type="button" role="tab" data-ptab="spawn">Spawn item</button>
 		</div>
 		<div class="ppane" data-ppane="stats">
 		<div class="statgrid">
@@ -266,7 +267,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 				<div class="chips" id="pChips"></div>
 			</div>
 			<div class="miniwrap">
-				<svg id="mini" viewBox="0 0 260 260" role="img" aria-label="The map around the player: drag to move, scroll to zoom, click to pick a teleport spot"></svg>
+				<svg id="mini" viewBox="0 0 260 260" role="img" aria-label="The map around the player: drag to move, scroll to zoom, click to pick a teleport spot"><image id="miniImg" preserveAspectRatio="none" visibility="hidden"/><g id="miniG"></g></svg>
 				<div class="minihud"><span id="miniXY"></span><span class="sp"></span><button type="button" id="miniFollow" hidden title="Zoom back in to 100 m on the player and follow them again">Recenter</button></div>
 				<div class="miniscale" id="miniScale"></div>
 			</div>
@@ -296,9 +297,11 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 		<h4>Kills and deaths</h4>
 		<table class="dt"><tbody id="pKills"></tbody></table>
 		</div>
-		<div class="ppane" data-ppane="items" hidden>
+		<div class="ppane" data-ppane="inventory" hidden>
 		<h4>Inventory <span class="muted" id="invWhen"></span></h4>
 		<div class="inv"><div class="ilist" id="iList"></div><div class="idet" id="iDet"></div></div>
+		</div>
+		<div class="ppane" data-ppane="spawn" hidden>
 		<h4>Spawn an item <span class="muted">on the ground in front of them</span></h4>
 		<div class="form stats" id="fSpawn">
 			<div class="inl"><input id="spFind" class="grow" type="search" placeholder="Find an item by name or class" aria-label="Find an item" autocomplete="off">
@@ -429,6 +432,9 @@ async function poll() {
 const SIZES = { chernarusplus: 15360, enoch: 12800, namalsk: 12800, deerisle: 16384, sakhal: 15360, esseker: 12800, takistanplus: 12800, banov: 15360, chiemsee: 10240, pripyat: 20480, rostow: 14336, iztek: 8192, alteria: 8192 };
 const NAMES = { chernarusplus: 'Chernarus', enoch: 'Livonia', namalsk: 'Namalsk', deerisle: 'Deer Isle', sakhal: 'Sakhal', esseker: 'Esseker', takistanplus: 'Takistan', banov: 'Banov', chiemsee: 'Chiemsee', pripyat: 'Pripyat', rostow: 'Rostow', iztek: 'Iztek', alteria: 'Alteria', nasdara: 'Nasdara' };
 let map, size = 0, world = '', gridLayer, labelLayer, imageLayer, markers = {}, fitted = false;
+// mapImg is the URL of the world's picture once it has loaded (the mini-map
+// draws it too), or '' while there is none.
+let mapImg = '';
 
 function initMap() {
 	map = L.map('map', { crs: L.CRS.Simple, minZoom: -6, maxZoom: 3, zoomSnap: 0.25, attributionControl: false, zoomControl: false });
@@ -448,8 +454,12 @@ function setWorld(w, s) {
 	gridLayer.clearLayers();
 	if (newWorld) {
 		if (imageLayer) { imageLayer.remove(); imageLayer = null; }
+		mapImg = '';
 		const img = new Image();
-		img.onload = () => { imageLayer = L.imageOverlay(img.src, [[0, 0], [size, size]]).addTo(map); imageLayer.bringToBack(); };
+		img.onload = () => {
+			imageLayer = L.imageOverlay(img.src, [[0, 0], [size, size]]).addTo(map); imageLayer.bringToBack();
+			mapImg = img.src; redrawMini();
+		};
 		img.src = '/api/mod/map/' + encodeURIComponent(world);
 	} else if (imageLayer) imageLayer.setBounds([[0, 0], [size, size]]);
 	const line = { color: '#2f3a31', weight: 1, interactive: false };
@@ -799,7 +809,8 @@ function renderPlayer() {
 		const save = document.getElementById('pSave');
 		save.innerHTML = ''; save.setAttribute('data-n', '');
 		document.getElementById('pChips').innerHTML = '';
-		document.getElementById('mini').innerHTML = '';
+		document.getElementById('miniG').innerHTML = '';
+		document.getElementById('miniImg').setAttribute('visibility', 'hidden');
 		['tHands', 'tVehicle', 'tKD'].forEach(id => document.getElementById(id).textContent = '—');
 	}
 	document.getElementById('tKDall').textContent = detail && detail.kills != null ? detail.kills + ' / ' + detail.deaths + ' all time' : '';
@@ -986,10 +997,19 @@ let mini = { span: 1000, cx: 0, cz: 0, follow: true }, tpPick = null;
 function resetMini() { mini = { span: 1000, cx: 0, cz: 0, follow: true }; }
 function miniMax() { return Math.max(1000, size || 15360); }
 function drawMini(p) {
-	const s = document.getElementById('mini');
+	const s = document.getElementById('miniG');
 	if (mini.follow) { mini.cx = p.x; mini.cz = p.z; }
 	const span = mini.span, x0 = mini.cx - span / 2, z0 = mini.cz - span / 2;
 	const px = x => (x - x0) / span * MINI, pz = z => MINI - (z - z0) / span * MINI;
+	// The map's picture under it all, if it has one: one element, moved
+	// rather than redrawn, so the image isn't decoded again every second.
+	const im = document.getElementById('miniImg'), ims = size || 15360;
+	if (mapImg) {
+		if (im.getAttribute('href') !== mapImg) im.setAttribute('href', mapImg);
+		im.setAttribute('x', px(0)); im.setAttribute('y', pz(ims));
+		im.setAttribute('width', px(ims) - px(0)); im.setAttribute('height', pz(0) - pz(ims));
+		im.setAttribute('visibility', 'visible');
+	} else im.setAttribute('visibility', 'hidden');
 	const inView = (x, z) => x >= x0 && x <= x0 + span && z >= z0 && z <= z0 + span;
 	// Grid: 10 m very close, 100 m close, 500 m or 1 km further out; every
 	// 100 m (10 m grid) or km brighter.
@@ -1088,7 +1108,7 @@ function showForm(name) {
 	if (name === 'message') document.getElementById('msgText').focus();
 }
 
-// ---- The dialog's tabs: Stats, and Inventory & items ---------------------
+// ---- The dialog's tabs: Stats, Inventory, and Spawn item -----------------
 
 // pTab stays as it is from one player to the next (Prev / Next).
 let pTab = 'stats';
@@ -1100,7 +1120,7 @@ function showPTab(name) {
 		b.setAttribute('aria-selected', on);
 	});
 	document.querySelectorAll('#pModal .ppane').forEach(p => p.hidden = p.dataset.ppane !== name);
-	if (name === 'items') loadItems();
+	if (name === 'spawn') loadItems();
 }
 document.getElementById('pTabs').addEventListener('click', e => {
 	const b = e.target.closest('[data-ptab]');
@@ -1123,7 +1143,7 @@ async function loadItems() {
 	} catch (e) { }
 	renderItems();
 	// Still coming in from the mod: look again while the tab is open.
-	if (!catalog) setTimeout(() => { if (pTab === 'items' && document.getElementById('pModal').style.display === 'flex') loadItems(); }, 2000);
+	if (!catalog) setTimeout(() => { if (pTab === 'spawn' && document.getElementById('pModal').style.display === 'flex') loadItems(); }, 2000);
 }
 function renderItems() {
 	const list = document.getElementById('spList');

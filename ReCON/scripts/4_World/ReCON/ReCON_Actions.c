@@ -1,6 +1,9 @@
 // ReCON_Actions runs one command from ReCON on the server.
 class ReCON_Actions
 {
+	// The vehicle the last SpawnVehicleAt made (null when it made none).
+	protected static EntityAI s_LastVehicle;
+
 	static ReCON_Result Run(ReCON_Command c)
 	{
 		ReCON_Result r = new ReCON_Result();
@@ -72,7 +75,16 @@ class ReCON_Actions
 				err = Message(p, c.title, c.text, c.seconds);
 				break;
 			case "spawn":
+				s_LastVehicle = null;
 				err = Spawn(p, c.text, c.value, c.stat);
+				// A vehicle: say which (by persistent ID), and replace the
+				// one named, now that the new one exists.
+				if (err == "" && s_LastVehicle)
+				{
+					r.entity = ReCON_Vehicles.PersistentID(s_LastVehicle);
+					if (c.replace != "")
+						ReCON_Vehicles.Replace(c.replace, s_LastVehicle);
+				}
 				break;
 			case "condition":
 				err = SetCondition(p, c.text.ToInt(), (int)c.value);
@@ -388,6 +400,7 @@ class ReCON_Actions
 			return "the game couldn't create " + type;
 		v.SetDirection(dir);
 		v.OnDebugSpawn();
+		s_LastVehicle = v;
 		// Every fluid to the brim, as COT does: a modded car's OnDebugSpawn
 		// may fill none, and vanilla's leaves out brake fluid.
 		Car car = Car.Cast(v);

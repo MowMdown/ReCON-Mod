@@ -9,7 +9,7 @@ const int RECON_PROTOCOL = 1;
 class ReCON_Sync
 {
 	int v = RECON_PROTOCOL;
-	string mod = "0.0.1l";
+	string mod = "0.0.1m";
 	string key;      // the RCON password
 	string world;    // "chernarusplus"
 	int year;        // the in-game date and time
@@ -227,6 +227,7 @@ class ReCON_Command
 	string stat;     // set: health | blood | shock | water | energy; spawn: where (ground | inventory | hands)
 	float value;
 	string text;     // message
+	string replace;  // spawn: a vehicle (persistent ID) to delete once the new one exists, crew put out first
 	string title;
 	float seconds;
 	// weather: stat is overcast | rain | fog | snow | windSpeed | windDir (degrees),
@@ -255,6 +256,7 @@ class ReCON_Result
 	int id;
 	bool ok;
 	string error;
+	string entity;   // a vehicle spawn's new vehicle, by persistent ID (b1:b2:b3:b4); "" otherwise
 };
 
 class ReCON_Reply

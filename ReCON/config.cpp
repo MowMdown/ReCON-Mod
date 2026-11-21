@@ -16,7 +16,7 @@ class CfgMods
 		dir = "ReCON";
 		name = "ReCON";
 		author = "MowMdown";
-		// Not for monetized servers: see NOTICE and README.md.
+		// Monetized servers need Bohemia Interactive's approval: see NOTICE.
 		version = "0.0.1d";
 		type = "mod";
 		dependencies[] = {"Game", "World"};

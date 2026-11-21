@@ -48,7 +48,7 @@ func main() {
 		log.Fatal(err)
 	}
 	modCpp := "name = \"ReCON\";\npicture = \"\";\nactionName = \"GitHub\";\naction = \"https://github.com/MowMdown/ReCON-Mod\";\n" +
-		"tooltip = \"ReCON companion mod (server-side). Not for monetized servers.\";\noverview = \"Live player data and actions for ReCON. Not for monetized servers: see NOTICE.\";\nauthor = \"MowMdown\";\n"
+		"tooltip = \"ReCON companion mod (server-side). Monetized servers need Bohemia Interactive's approval.\";\noverview = \"Live player data and actions for ReCON. Monetized servers need Bohemia Interactive's approval: see NOTICE.\";\nauthor = \"MowMdown\";\n"
 	if err := os.WriteFile(filepath.Join(*out, "mod.cpp"), []byte(modCpp), 0o644); err != nil {
 		log.Fatal(err)
 	}

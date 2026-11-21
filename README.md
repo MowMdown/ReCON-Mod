@@ -3,14 +3,13 @@
 The DayZ server-side companion mod for [ReCON](https://github.com/MowMdown/ReCON),
 and ReCON's side of it (the Live Map page and the API the mod talks to).
 
-> **Not for monetized servers.** ReCON-Mod must not be used on, or to run,
-> support or promote, any DayZ server that makes money: paid access, paid
-> priority queue or whitelist, selling in-game items, perks, kits, bases
-> or vehicles, donation rewards, or any other paid benefit. Use it only on
-> servers that are free to play and earn nothing. (This is the author's
-> condition of use, stated alongside the MIT licence; it also follows the
-> non-commercial terms of the DayZ Public License that DayZ's scripts are
-> under.)
+> **Monetized servers need Bohemia Interactive's approval.** The MIT
+> licence lets you use ReCON-Mod on any server, but it gives no permission
+> from Bohemia Interactive to monetize a DayZ server, or to monetize other
+> mods or content on it. If your server makes money, getting Bohemia's
+> approval (and the other authors' permission) is up to you: see
+> Bohemia's [DayZ monetization policy](https://www.bohemia.net/en/monetization/dayz)
+> and [NOTICE](NOTICE).
 
 | Path | Contents |
 |---|---|
@@ -224,16 +223,17 @@ World actions, modelled on Community Online Tools' weather module (`mod.weather`
 
 ## Credits and licences
 
-ReCON-Mod's own code is under the [MIT License](LICENSE), with the
-condition above: **not for monetized servers**. [NOTICE](NOTICE) lists what
-it builds on or learned from, and their licences:
+ReCON-Mod's own code is under the [MIT License](LICENSE); a monetized
+server still needs Bohemia Interactive's approval (above). [NOTICE](NOTICE)
+lists what it builds on or learned from, and their licences:
 
 - **DayZ** (Bohemia Interactive). The mod uses DayZ's script API, and the
   Live Map uses the thresholds and colours from DayZ's scripts for the HUD
   colours. DayZ's scripts are under the
-  [DayZ Public License](https://www.bohemia.net/community/licenses/dayz-public-license-dpl):
-  attribution, **non-commercial**, DayZ only. Keep your use of the mod
-  within it, and within Bohemia's rules for servers. This project is not
+  [DayZ Public License](https://www.bohemia.net/en/licenses/dayz-public-license-dpl):
+  attribution, non-commercial, DayZ only, for any of that material used
+  here. Keep your use of the mod within it, and within Bohemia's rules for
+  servers. This project is not
   made or endorsed by Bohemia Interactive.
 - **[Community Framework](https://github.com/Jacob-Mango/DayZ-Community-Framework)**
   by Jacob_Mango and Arkensor (LGPL 2.1), a dependency loaded on the server.

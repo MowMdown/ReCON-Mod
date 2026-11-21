@@ -41,12 +41,3 @@ Community Online Tools was used as a functional and implementation reference for
 Community Online Tools is licensed under the Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0). This attribution identifies COT as a reference project and does not indicate that COT code or assets are included in ReCON-Mod.
 
 https://github.com/Jacob-Mango/DayZ-CommunityOnlineTools
-
-
-Leaflet (used by the Live Map page, served by ReCON)
-
-Leaflet is used by ReCON and distributed with the Live Map page.
-
-Copyright (c) 2010-2023, Volodymyr Agafonkin.
-
-Leaflet is licensed under the BSD 2-Clause License. Its license and copyright notice are included with the Leaflet distribution in internal/web/assets/leaflet.

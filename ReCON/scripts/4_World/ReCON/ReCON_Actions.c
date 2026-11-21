@@ -83,7 +83,7 @@ class ReCON_Actions
 				{
 					r.entity = ReCON_Vehicles.PersistentID(s_LastVehicle);
 					if (c.replace != "")
-						ReCON_Vehicles.Replace(c.replace, s_LastVehicle);
+						ReCON_Vehicles.Replace(c.replace, c.replaceType, s_LastVehicle);
 				}
 				break;
 			case "condition":

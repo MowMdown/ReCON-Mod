@@ -227,7 +227,8 @@ class ReCON_Command
 	string stat;     // set: health | blood | shock | water | energy; spawn: where (ground | inventory | hands)
 	float value;
 	string text;     // message
-	string replace;  // spawn: a vehicle (persistent ID) to delete once the new one exists, crew put out first
+	string replace;     // spawn: a vehicle (persistent ID) to delete once the new one exists, crew put out first
+	string replaceType; // ...and its class: deleted only if both match
 	string title;
 	float seconds;
 	// weather: stat is overcast | rain | fog | snow | windSpeed | windDir (degrees),

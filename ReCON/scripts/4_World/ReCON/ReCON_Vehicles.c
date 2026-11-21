@@ -98,14 +98,20 @@ class ReCON_Vehicles
 		return null;
 	}
 
-	// Replace deletes the vehicle with persistent ID pid (a player's last
-	// chat car), whoever is in it, unless it is keep (the new one). Gone
-	// already: nothing to do.
-	static void Replace(string pid, EntityAI keep)
+	// Replace deletes the vehicle with persistent ID pid and class type (a
+	// player's last chat car), whoever is in it, unless it is keep (the new
+	// one). Gone already (the game removed it): nothing to do. An ID that
+	// now belongs to a vehicle of another class is never deleted.
+	static void Replace(string pid, string type, EntityAI keep)
 	{
 		EntityAI old = ByPersistentID(pid);
 		if (!old || old == keep)
 			return;
+		if (old.GetType() != type)
+		{
+			ReCON_Log.Info("not replacing vehicle " + pid + ": it is a " + old.GetType() + ", not the " + type + " that was spawned");
+			return;
+		}
 		ReCON_Log.Info("replacing vehicle " + pid + " (" + old.GetType() + ")");
 		ForceDelete(old);
 	}

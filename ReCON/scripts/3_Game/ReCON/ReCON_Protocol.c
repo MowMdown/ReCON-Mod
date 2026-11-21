@@ -9,7 +9,7 @@ const int RECON_PROTOCOL = 1;
 class ReCON_Sync
 {
 	int v = RECON_PROTOCOL;
-	string mod = "0.0.1m";
+	string mod = "1.0.1";
 	string key;      // the RCON password
 	string world;    // "chernarusplus"
 	int year;        // the in-game date and time
@@ -43,6 +43,33 @@ class ReCON_Sync
 	ref array<ref ReCON_Place> places = new array<ref ReCON_Place>();
 	// The vehicles ReCON asked to see inside (the reply's watchVehicles).
 	ref array<ref ReCON_VehicleDetail> vehicleDetails = new array<ref ReCON_VehicleDetail>();
+	// The objects players placed, every 30 s (placedSent), and what is in
+	// the ones the reply's watchPlaced asked about.
+	bool placedSent;
+	ref array<ref ReCON_Placed> placed = new array<ref ReCON_Placed>();
+	ref array<ref ReCON_PlacedDetail> placedDetails = new array<ref ReCON_PlacedDetail>();
+};
+
+class ReCON_Placed
+{
+	int id;          // this run's
+	string pid;      // persistent ID: b1:b2:b3:b4
+	string type;
+	string kind;     // base | tent | storage | trap | other
+	string name;
+	float x;
+	float z;
+	float health;    // 0-1
+	string placer;   // who placed it ("" unknown: before recon-mod 1.0.1)
+	string placerId; // their SteamID64
+	int placedAt;    // unix time; 0 unknown
+};
+
+class ReCON_PlacedDetail
+{
+	int id;
+	ref array<ref ReCON_Zone> zones = new array<ref ReCON_Zone>();
+	ref array<ref ReCON_Item> items = new array<ref ReCON_Item>();
 };
 
 class ReCON_Predator
@@ -208,6 +235,8 @@ class ReCON_Event
 	float y;
 	float z;
 	int at;            // seconds since the mod started (ReCON stamps the real time)
+	// A player victim's inventory as they died, for ReCON to give back.
+	ref array<ref ReCON_Item> inventory = new array<ref ReCON_Item>();
 };
 
 class ReCON_Command
@@ -267,6 +296,7 @@ class ReCON_Reply
 	int interval;    // ms; 0 keeps the configured one
 	ref array<string> watch = new array<string>(); // SteamID64s to send the inventory of
 	ref array<int> watchVehicles = new array<int>(); // vehicle ids to send the parts and cargo of
+	ref array<int> watchPlaced = new array<int>();  // placed object ids to send the contents of
 	bool wantPlaces; // send the map's place names
 	int catalogNext; // 1 + the first catalog entry ReCON wants next; 0 none
 	ref array<ref ReCON_Command> commands = new array<ref ReCON_Command>();

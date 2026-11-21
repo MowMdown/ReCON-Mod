@@ -107,13 +107,27 @@ class ReCON_Vehicles
 		EntityAI old = ByPersistentID(pid);
 		if (!old || old == keep)
 			return;
-		if (old.GetType() != type)
-		{
-			ReCON_Log.Info("not replacing vehicle " + pid + ": it is a " + old.GetType() + ", not the " + type + " that was spawned");
-			return;
-		}
-		ReCON_Log.Info("replacing vehicle " + pid + " (" + old.GetType() + ")");
-		ForceDelete(old);
+		string err = RemoveByID(pid, type);
+		ReCON_Log.Info("replacing vehicle " + pid + " (" + type + "): " + err);
+	}
+
+	// RemoveByID removes the vehicle or placed object with persistent ID pid,
+	// only if it is of class type: a vehicle's crew is put out first, an
+	// object goes with everything in it. "" when removed.
+	static string RemoveByID(string pid, string type)
+	{
+		EntityAI e = ByPersistentID(pid);
+		if (!e)
+			e = ReCON_Placed.ByPersistentID(pid);
+		if (!e)
+			return "it's already gone";
+		if (e.GetType() != type)
+			return "it is a " + e.GetType() + ", not the " + type + " asked for";
+		if (Transport.Cast(e))
+			ForceDelete(e);
+		else
+			g_Game.ObjectDelete(e);
+		return "";
 	}
 
 	protected static ref array<ref ReCON_VehicleRemover> s_Removers = new array<ref ReCON_VehicleRemover>();

@@ -17,7 +17,9 @@ class CfgMods
 		name = "ReCON";
 		author = "MowMdown";
 		// Monetized servers need Bohemia Interactive's approval: see NOTICE.
-		version = "0.0.1m";
+		version = "1.0.1";
+		// CF mod storage: who placed an object is saved with it (ReCON_Placed.c).
+		storageVersion = 1;
 		type = "mod";
 		dependencies[] = {"Game", "World"};
 

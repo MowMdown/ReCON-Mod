@@ -21,6 +21,10 @@ class ReCON_Module : CF_ModuleWorld
 	protected float m_VehiclesAt = -1000;
 	// The vehicles ReCON wants to see inside (by id).
 	protected ref array<int> m_WatchVehicles = new array<int>();
+	// When the placed objects were last sent, and the ones ReCON wants to see inside.
+	protected float m_PlacedAt = -1000;
+	protected ref array<int> m_WatchPlaced = new array<int>();
+	static const float PLACED_EVERY = 30;
 	// ReCON wants the map's place names in the next sync.
 	protected bool m_WantPlaces;
 	static const float VEHICLES_EVERY = 5;
@@ -191,6 +195,18 @@ class ReCON_Module : CF_ModuleWorld
 			sync.placesSent = true;
 			ReCON_Places.Read(sync.places);
 		}
+		if (m_SinceStart - m_PlacedAt >= PLACED_EVERY)
+		{
+			m_PlacedAt = m_SinceStart;
+			sync.placedSent = true;
+			ReCON_Placed.Read(sync.placed);
+		}
+		foreach (int oid : m_WatchPlaced)
+		{
+			ReCON_PlacedDetail od = ReCON_Placed.Detail(oid);
+			if (od)
+				sync.placedDetails.Insert(od);
+		}
 		foreach (int vid : m_WatchVehicles)
 		{
 			ReCON_VehicleDetail vd = ReCON_Vehicles.Detail(vid);
@@ -258,6 +274,12 @@ class ReCON_Module : CF_ModuleWorld
 		{
 			foreach (int wv : reply.watchVehicles)
 				m_WatchVehicles.Insert(wv);
+		}
+		m_WatchPlaced.Clear();
+		if (reply.watchPlaced)
+		{
+			foreach (int wp : reply.watchPlaced)
+				m_WatchPlaced.Insert(wp);
 		}
 		if (reply.commands)
 		{
@@ -335,6 +357,8 @@ class ReCON_Module : CF_ModuleWorld
 			e.victim = victim.GetIdentity().GetPlainId();
 			e.victimName = victim.GetIdentity().GetName();
 			m_Deaths.Set(e.victim, m_Deaths.Get(e.victim) + 1);
+			// What they had as they died, before the body can be looted.
+			ReCON_Inventory.Read(victim, e.inventory);
 		}
 
 		PlayerBase by;

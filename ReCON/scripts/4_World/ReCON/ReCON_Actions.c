@@ -15,6 +15,13 @@ class ReCON_Actions
 			ReCON_Log.Info(c.action + " " + c.text + " at " + c.x + ", " + c.z + ": " + ResultText(r));
 			return r;
 		}
+		if (c.action == "removeEntity")
+		{
+			r.error = ReCON_Vehicles.RemoveByID(c.text, c.stat);
+			r.ok = r.error == "";
+			ReCON_Log.Info(c.action + " " + c.text + " (" + c.stat + "): " + ResultText(r));
+			return r;
+		}
 		if (c.action == "deleteVehicle")
 		{
 			r.error = ReCON_Vehicles.Delete(c.text);
@@ -85,6 +92,9 @@ class ReCON_Actions
 					if (c.replace != "")
 						ReCON_Vehicles.Replace(c.replace, c.replaceType, s_LastVehicle);
 				}
+				break;
+			case "restore":
+				err = ReCON_Restore.Run(p, c.text);
 				break;
 			case "condition":
 				err = SetCondition(p, c.text.ToInt(), (int)c.value);

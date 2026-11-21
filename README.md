@@ -172,11 +172,12 @@ The **Live Map** page (`/live`, in the nav after Server Info):
   hands or the vehicle they're in, a health bar, and chips for bleeding,
   illness, knocked out and restrained. A search box filters the list.
 - **Right:** the map, with each player as an arrow showing their heading,
-  updated every second. Drag to pan, scroll to zoom; **Fit** zooms to
-  everyone. It is a 1 km grid with the map's coordinates; to draw the
+  updated every second. Drag to pan, scroll to zoom; **Fit** shows the
+  whole map. It is a 1 km grid with the map's coordinates; to draw the
   terrain under it, put a picture of the whole map (square, north up) in
   ReCON's data folder as `maps/<world>.jpg` (or `.png`, `.webp`), such as
-  `maps/chernarusplus.jpg`. Above it: the weather and the in-game time.
+  `maps/chernarusplus.jpg`: [satmap](#map-pictures-satmap) makes one from
+  the map's own files. Above it: the weather and the in-game time.
 - **Clicking a player** opens their stats. Drag Health, Blood, Water, Food or
   Comfort left or right to set it (shock, stamina and temperature are read
   only). They show health, blood, water and food in
@@ -196,6 +197,41 @@ The **Live Map** page (`/live`, in the nav after Server Info):
 
 While the mod is connected, ReCON's Server Info page takes the in-game date
 from it (for sunrise and sunset) rather than from `SERVER_TIME`.
+
+### Map pictures (satmap)
+
+`satmap` makes `maps/<world>.jpg` from a map's own satellite tiles
+(`layers\S_<x>_<y>_lco.paa` in one of its data PBOs), on Windows, Linux or
+macOS, with no DayZ Tools. Each release has it ready to run
+(`satmap-windows-amd64.exe` and others); or, with Go, `go run ./cmd/satmap`.
+
+Point it at a PBO or a folder: it looks through every PBO in the folder
+and its subfolders for tiles. For the official maps (Chernarus, Livonia,
+Sakhal, Nasdara) that is the DayZ folder; for a map mod (Namalsk, Deer
+Isle, ...), the mod's folder.
+
+```
+satmap "C:\Program Files (x86)\Steam\steamapps\common\DayZ"
+satmap -world chernarusplus "C:\Program Files (x86)\Steam\steamapps\common\DayZ"
+satmap "C:\Program Files (x86)\Steam\steamapps\common\DayZ\!Workshop\@Namalsk Island"
+```
+
+- When it finds more than one map, it lists them with their world names:
+  run it again with `-world` and one of them (`-world enoch`; any part of
+  the path works). The world name it guesses from the path is the file
+  name; it has to be the one the mod reports (the `world` in
+  `/api/mod/players`), so give `-world <that name>` if they differ.
+- The tiles overlap; satmap measures by how much and crops it (`-crop N`
+  to set it by hand). It keeps the picture's size rounded down to a
+  multiple of 256 px, which drops the padding at the edges on the maps we
+  know of (`-size N` to set it: on most maps 1 px is 1 m, so it is the
+  map's size in metres).
+- It writes 8192 × 8192 px (`-px` to change it). A whole map takes a few
+  seconds.
+
+Put the picture in ReCON's data folder as `maps/<world>.jpg` (with Docker,
+the `maps` folder next to the database). It comes from the game's or the
+map mod's files: use it on your own ReCON, but don't share or publish it.
 
 ### The API
 
@@ -244,4 +280,5 @@ lists what it builds on or learned from, and their licences:
   here with DayZ's own API. No COT code is copied.
 
 A picture of a map you put in ReCON's `maps` folder must be one you have the
-right to use. Many online DayZ map images belong to their makers.
+right to use. Many online DayZ map images belong to their makers; one
+satmap makes from your own game files is for your own use, not to share.

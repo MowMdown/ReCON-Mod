@@ -171,7 +171,7 @@ table.dt a { color: #8ab4f8; text-decoration: none; cursor: pointer; }
 .pbox #mini { width: 390px; height: 390px; }
 .pbox .splist { max-height: 420px; }
 /* The stats fill the height beside the mini-map: taller bars, more room. */
-.pbox .bars { gap: 25px; padding-top: 4px; }
+.pbox .bars { gap: 12.5px; padding-top: 4px; }
 .pbox .bar { grid-template-columns: 84px minmax(0, 1fr) 150px; font-size: 14.5px; }
 .pbox .track { height: 14px; border-radius: 7px; overflow: visible; }
 .pbox .track .fill { border-radius: 6px; }
@@ -272,7 +272,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 				<div class="chips" id="pChips"></div>
 			</div>
 			<div class="miniwrap">
-				<svg id="mini" viewBox="0 0 260 260" role="img" aria-label="The map around the player: drag to move, scroll to zoom, click to pick a teleport spot"><image id="miniImg" preserveAspectRatio="none" visibility="hidden"/><g id="miniG"></g></svg>
+				<svg id="mini" viewBox="0 0 260 260" role="img" aria-label="The map around the player: drag to move, scroll to zoom, click to pick a teleport spot, double-click to teleport there"><image id="miniImg" preserveAspectRatio="none" visibility="hidden"/><g id="miniG"></g></svg>
 				<div class="minihud"><span id="miniXY"></span><span class="sp"></span><button type="button" id="miniFollow" hidden title="Zoom back to 500 m across on the player and follow them again">Recenter</button></div>
 				<div class="miniscale" id="miniScale"></div>
 			</div>
@@ -290,8 +290,9 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 		</div>
 		<div class="form" id="fTeleport">
 			Teleport to <input id="tpX" size="6" inputmode="decimal" aria-label="X (east)"> , <input id="tpZ" size="6" inputmode="decimal" aria-label="Z (north)">
-			<span class="muted">or click the mini-map</span>
+			<span class="muted">or click the mini-map (double-click to go there now)</span>
 			<span class="muted">·</span> to player <select id="tpTo"></select>
+			<button type="button" id="bBring" onclick="doBring()" title="Teleport the player picked here to this player instead">Bring here</button>
 			<span class="grow"></span><button type="button" id="bBack" onclick="act('back')" disabled>Previous</button>
 			<button type="button" class="go" onclick="doTeleport()">Teleport</button>
 		</div>
@@ -1048,7 +1049,7 @@ function miniAt(e) {
 	return { x: mini.cx + (fx - 0.5) * mini.span, z: mini.cz - (fy - 0.5) * mini.span, fx, fy };
 }
 function redrawMini() { const p = byGuid[selGuid]; if (p) drawMini(p); }
-let miniDrag = null;
+let miniDrag = null, miniDragged = false; // miniDragged: the last press was a drag, not a click
 const miniEl = document.getElementById('mini');
 miniEl.addEventListener('pointerdown', e => {
 	if (e.button !== 0) return;
@@ -1072,6 +1073,7 @@ miniEl.addEventListener('pointerleave', () => { if (!miniDrag) document.getEleme
 function endMiniDrag(e, pick) {
 	if (!miniDrag || e.pointerId !== miniDrag.id) return;
 	const moved = miniDrag.moved;
+	miniDragged = moved;
 	miniDrag = null;
 	miniEl.classList.remove('panning');
 	if (moved || !pick) return;
@@ -1084,6 +1086,16 @@ function endMiniDrag(e, pick) {
 	renderPlayer();
 }
 miniEl.addEventListener('pointerup', e => endMiniDrag(e, true));
+// A double-click teleports them there at once: its two clicks have already
+// picked the spot, so this is the Teleport button without the trip.
+miniEl.addEventListener('dblclick', e => {
+	e.preventDefault();
+	if (miniDragged) return; // two quick drags, not a double-click
+	const at = miniAt(e);
+	if (!(at.x > 0) || !(at.z > 0) || (size && (at.x > size || at.z > size))) { document.getElementById('pErr').textContent = 'That spot is off the map.'; return; }
+	document.getElementById('tpTo').value = '';
+	act('teleport', { x: at.x, z: at.z, y: 0 }, true).then(ok => { if (ok) clearTeleport(); });
+});
 miniEl.addEventListener('pointercancel', e => endMiniDrag(e, false));
 // The wheel: 100 m per notch (a trackpad's small steps add up to notches).
 let miniWheel = 0;
@@ -1205,12 +1217,13 @@ function doSpawn() {
 	act('spawn', { text: spSel, value: n }, true); // stays open for the next item
 }
 
-// act queues an action; the panel it came from closes unless keepOpen.
-async function act(action, body, keepOpen) {
+// act queues an action for the player in the dialog (or for guid, when
+// given); the panel it came from closes unless keepOpen.
+async function act(action, body, keepOpen, guid) {
 	const err = document.getElementById('pErr');
 	err.textContent = '';
 	try {
-		const d = await api('POST', '/api/mod/players/' + selGuid + '/' + action, body || {});
+		const d = await api('POST', '/api/mod/players/' + (guid || selGuid) + '/' + action, body || {});
 		lastBatch = d.command ? [d.command.id] : [];
 		if (!keepOpen) showForm('');
 		poll();
@@ -1232,6 +1245,13 @@ function doTeleport() {
 	const x = parseFloat(document.getElementById('tpX').value), z = parseFloat(document.getElementById('tpZ').value);
 	if (!(x > 0) || !(z > 0)) { document.getElementById('pErr').textContent = 'Enter where to (x and z, in metres), click the mini-map, or pick a player.'; return; }
 	act('teleport', { x, z, y: 0 }).then(ok => { if (ok) clearTeleport(); });
+}
+// doBring is "to player" the other way round: the player picked there is
+// teleported to the player in the dialog.
+function doBring() {
+	const from = document.getElementById('tpTo').value;
+	if (!from) { document.getElementById('pErr').textContent = 'Pick a player under "to player" to bring here.'; return; }
+	act('teleportTo', { target: selGuid }, false, from).then(ok => { if (ok) clearTeleport(); });
 }
 function doMessage() {
 	const t = document.getElementById('msgText').value.trim();

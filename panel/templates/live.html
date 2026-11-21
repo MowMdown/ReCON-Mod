@@ -137,6 +137,11 @@ button.on { color: #8ab4f8; border-color: #8ab4f8; }
 .splist { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; margin: 10px 0 8px; }
 .sprow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; background: #141414; border: 1px solid #333; border-radius: 5px; padding: 5px 9px; cursor: pointer; text-align: left; color: inherit; font: inherit; font-size: 13px; margin: 0; width: 100%; }
 .sprow:hover { border-color: #555; }
+/* A-Z: jump to the first item starting with that letter (# for the rest) */
+.spaz { display: flex; flex-wrap: wrap; gap: 2px; margin: 8px 0 0; }
+.spaz button { margin: 0; padding: 2px 0; width: 24px; font-size: 12px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #ccc; cursor: pointer; }
+.spaz button:hover:not(:disabled) { border-color: #8ab4f8; color: #fff; }
+.spaz button:disabled { opacity: .3; cursor: default; }
 .sprow.sel { border-color: #8ab4f8; background: #1b2433; }
 .sprow .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sprow .nm small { color: #888; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; margin-left: 6px; }
@@ -268,7 +273,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 			</div>
 			<div class="miniwrap">
 				<svg id="mini" viewBox="0 0 260 260" role="img" aria-label="The map around the player: drag to move, scroll to zoom, click to pick a teleport spot"><image id="miniImg" preserveAspectRatio="none" visibility="hidden"/><g id="miniG"></g></svg>
-				<div class="minihud"><span id="miniXY"></span><span class="sp"></span><button type="button" id="miniFollow" hidden title="Zoom back in to 100 m on the player and follow them again">Recenter</button></div>
+				<div class="minihud"><span id="miniXY"></span><span class="sp"></span><button type="button" id="miniFollow" hidden title="Zoom back to 500 m across on the player and follow them again">Recenter</button></div>
 				<div class="miniscale" id="miniScale"></div>
 			</div>
 		</div>
@@ -307,6 +312,7 @@ html[data-theme]:not([data-theme="default"]) #mini, html[data-theme]:not([data-t
 			<div class="inl"><input id="spFind" class="grow" type="search" placeholder="Find an item by name or class" aria-label="Find an item" autocomplete="off">
 				<select id="spKind" aria-label="Kind"><option value="">Everything</option><option value="weapon">Weapons</option><option value="magazine">Magazines</option>
 					<option value="ammo">Ammo</option><option value="clothing">Clothing</option><option value="item">Other items</option></select></div>
+			<div class="spaz" id="spAZ" role="group" aria-label="Jump to a letter"></div>
 			<div class="splist" id="spList"></div>
 			<div class="setfoot"><span class="muted" id="spPick"></span><span class="grow"></span>
 				<span>Count</span><input id="spCount" type="number" min="1" max="20" value="1" style="width:64px" aria-label="How many">
@@ -988,13 +994,14 @@ document.getElementById('pKills').addEventListener('click', e => {
 
 // The mini-map: the map around the player, a grid, the others in view.
 // It follows the player until it is dragged (pan) or zoomed with the
-// wheel away from them; Recenter zooms back in to 100 m
+// wheel away from them; Recenter zooms back to 500 m across (MINI_HOME)
 // on the player and follows them again. Each wheel notch zooms
 // 100 m in or out (no closer than 100 m across). A click that isn't a
 // drag picks a teleport spot.
 const MINI = 260;
-let mini = { span: 1000, cx: 0, cz: 0, follow: true }, tpPick = null;
-function resetMini() { mini = { span: 1000, cx: 0, cz: 0, follow: true }; }
+const MINI_HOME = 500; // metres across, when it opens and on Recenter
+let mini = { span: MINI_HOME, cx: 0, cz: 0, follow: true }, tpPick = null;
+function resetMini() { mini = { span: MINI_HOME, cx: 0, cz: 0, follow: true }; }
 function miniMax() { return Math.max(1000, size || 15360); }
 function drawMini(p) {
 	const s = document.getElementById('miniG');
@@ -1032,7 +1039,7 @@ function drawMini(p) {
 	if (inView(p.x, p.z)) h += '<g transform="translate(' + px(p.x) + ',' + pz(p.z) + ') rotate(' + p.heading + ')"><path d="M0,-9 L6.3,7.2 L0,3.2 L-6.3,7.2 Z" fill="' + colorOf(p.guid) + '" stroke="#111" stroke-width="1.2"/></g>';
 	s.innerHTML = h;
 	document.getElementById('miniScale').textContent = (step >= 1000 ? step / 1000 + ' km' : step + ' m') + ' grid · ' + (span >= 1000 ? (span / 1000).toFixed(1).replace(/\.0$/, '') + ' km' : span + ' m') + ' across';
-	document.getElementById('miniFollow').hidden = mini.follow && mini.span === 100;
+	document.getElementById('miniFollow').hidden = mini.follow && mini.span === MINI_HOME;
 }
 // miniAt is the map point (x, z) under the pointer.
 function miniAt(e) {
@@ -1097,7 +1104,7 @@ miniEl.addEventListener('wheel', e => {
 	mini.span = span;
 	redrawMini();
 }, { passive: false });
-document.getElementById('miniFollow').addEventListener('click', () => { mini.follow = true; mini.span = 100; redrawMini(); });
+document.getElementById('miniFollow').addEventListener('click', () => { mini.follow = true; mini.span = MINI_HOME; redrawMini(); });
 
 function showForm(name) {
 	for (const [f, b] of [['Message', 'bMessage']]) {
@@ -1137,7 +1144,9 @@ async function loadItems() {
 	try {
 		const d = await api('GET', '/api/mod/items');
 		if (d.complete) {
-			catalog = d.items.map(it => Object.assign(it, { find: (catName(it) + ' ' + it.type).toLowerCase() }));
+			// Sorted by name, so the A-Z bar can jump to a letter.
+			catalog = d.items.map(it => Object.assign(it, { find: (catName(it) + ' ' + it.type).toLowerCase(), letter: letterOf(it) }))
+				.sort((a, b) => catName(a).localeCompare(catName(b), undefined, { sensitivity: 'base' }));
 			catalogBy = Object.fromEntries(catalog.map(it => [it.type, it]));
 		}
 	} catch (e) { }
@@ -1145,19 +1154,34 @@ async function loadItems() {
 	// Still coming in from the mod: look again while the tab is open.
 	if (!catalog) setTimeout(() => { if (pTab === 'spawn' && document.getElementById('pModal').style.display === 'flex') loadItems(); }, 2000);
 }
+// letterOf is the A-Z bar's letter for an item: its name's first letter,
+// or # for a digit or anything else.
+const AZ = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+function letterOf(it) { const c = (catName(it)[0] || '').toUpperCase(); return c >= 'A' && c <= 'Z' ? c : '#'; }
 function renderItems() {
-	const list = document.getElementById('spList');
-	if (!catalog) { list.innerHTML = '<div class="empty">The item list is still coming in from recon-mod…</div>'; renderPick(); return; }
+	const list = document.getElementById('spList'), az = document.getElementById('spAZ');
+	if (!catalog) { list.innerHTML = '<div class="empty">The item list is still coming in from recon-mod…</div>'; az.innerHTML = ''; renderPick(); return; }
 	const words = document.getElementById('spFind').value.toLowerCase().split(/\s+/).filter(Boolean);
 	const kind = document.getElementById('spKind').value;
 	const hits = catalog.filter(it => (!kind || it.kind === kind) && words.every(w => it.find.includes(w)));
-	const shown = hits.slice(0, 200);
-	list.innerHTML = shown.length ? shown.map(it => '<button type="button" class="sprow' + (it.type === spSel ? ' sel' : '') + '" data-type="' + esc(it.type) + '">' +
-		'<span class="nm">' + esc(catName(it)) + '<small>' + esc(it.type) + '</small></span><span class="kd">' + KIND_TEXT[it.kind] + '</span></button>').join('') +
-		(hits.length > shown.length ? '<div class="muted">' + (hits.length - shown.length).toLocaleString() + ' more: type more of the name to narrow it down.</div>' : '')
-		: '<div class="empty">No item matches.</div>';
+	// Every match, in name order; the first item of each letter is marked
+	// for the A-Z bar.
+	const seen = {};
+	list.innerHTML = hits.length ? hits.map(it => {
+		const first = !seen[it.letter]; seen[it.letter] = true;
+		return '<button type="button" class="sprow' + (it.type === spSel ? ' sel' : '') + '" data-type="' + esc(it.type) + '"' + (first ? ' data-first="' + it.letter + '"' : '') + '>' +
+			'<span class="nm">' + esc(catName(it)) + '<small>' + esc(it.type) + '</small></span><span class="kd">' + KIND_TEXT[it.kind] + '</span></button>';
+	}).join('') : '<div class="empty">No item matches.</div>';
+	list.scrollTop = 0;
+	az.innerHTML = AZ.map(l => '<button type="button" data-az="' + l + '"' + (seen[l] ? '' : ' disabled') + ' title="' + (l === '#' ? 'Digits and symbols' : l) + '">' + l + '</button>').join('');
 	renderPick();
 }
+document.getElementById('spAZ').addEventListener('click', e => {
+	const b = e.target.closest('[data-az]');
+	if (!b || b.disabled) return;
+	const list = document.getElementById('spList'), row = list.querySelector('[data-first="' + b.dataset.az + '"]');
+	if (row) list.scrollTop += row.getBoundingClientRect().top - list.getBoundingClientRect().top;
+});
 function renderPick() {
 	const it = spSel && catalogBy[spSel];
 	document.getElementById('spPick').textContent = it ? catName(it) + ', on the ground in front of them' : (catalog ? catalog.length.toLocaleString() + ' items · pick one' : '');
@@ -1168,7 +1192,10 @@ document.getElementById('spList').addEventListener('click', e => {
 	const t = e.target.closest('[data-type]');
 	if (!t) return;
 	spSel = t.getAttribute('data-type');
-	renderItems();
+	// Only the highlight moves: redrawing the list would lose its scroll.
+	document.querySelectorAll('#spList .sprow.sel').forEach(r => r.classList.remove('sel'));
+	t.classList.add('sel');
+	renderPick();
 });
 function doSpawn() {
 	const err = document.getElementById('pErr');

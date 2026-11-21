@@ -31,7 +31,11 @@ class ReCON_Actions
 			case "heal":
 				Heal(p);
 				break;
+			case "dry":
+				Dry(p);
+				break;
 			case "kill":
+				p.m_ReCON_AdminKill = true;
 				p.SetHealth(0);
 				break;
 			case "teleport":
@@ -54,7 +58,10 @@ class ReCON_Actions
 				err = Message(p, c.title, c.text, c.seconds);
 				break;
 			case "spawn":
-				err = Spawn(p, c.text, c.value);
+				err = Spawn(p, c.text, c.value, c.stat);
+				break;
+			case "condition":
+				err = SetCondition(p, c.text.ToInt(), (int)c.value);
 				break;
 			default:
 				err = "unknown action " + c.action;
@@ -104,39 +111,210 @@ class ReCON_Actions
 			p.SetAllowDamage(false);
 	}
 
-	// Spawn puts count of type on the ground a metre or so in front of
-	// them, a little apart, with full stacks and magazines.
-	static string Spawn(PlayerBase p, string type, float count)
+	// Dry makes them and everything they carry (clothes first of all: wet
+	// clothes are what chill them) bone dry.
+	static void Dry(PlayerBase p)
+	{
+		if (p.GetStatWet())
+			p.GetStatWet().Set(0);
+		array<EntityAI> items = new array<EntityAI>();
+		p.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
+		EntityAI hands = p.GetItemInHands();
+		if (hands)
+		{
+			array<EntityAI> held = new array<EntityAI>();
+			hands.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, held);
+			items.InsertAll(held);
+		}
+		foreach (EntityAI e : items)
+		{
+			ItemBase ib = ItemBase.Cast(e);
+			if (ib)
+				ib.SetWet(ib.GetWetMin());
+		}
+	}
+
+	// Spawn makes count of type (full stacks and magazines) where says:
+	// "hands" (one, into empty hands), "inventory" (anywhere free in their
+	// clothing and containers; what doesn't fit goes on the ground) or, by
+	// default, on the ground a metre or so in front of them, a little apart.
+	// A vehicle is one, whole, 8 m in front of them and facing their way.
+	static string Spawn(PlayerBase p, string type, float count, string where)
 	{
 		if (!ReCON_Catalog.Spawnable(type))
 			return type + " isn't an item this server can spawn";
+		if (g_Game.IsKindOf(type, "Transport"))
+			return SpawnVehicle(p, type);
 		int n = (int)count;
 		if (n < 1)
 			n = 1;
 		if (n > 20)
 			n = 20;
-		vector pos = p.GetPosition();
+		EntityAI e;
+		if (where == "hands")
+		{
+			if (p.GetItemInHands())
+				return "their hands aren't empty";
+			e = p.GetHumanInventory().CreateInHands(type);
+			if (!e)
+				return "the game couldn't put " + type + " in their hands";
+			FillUp(e);
+			return "";
+		}
+		for (int i = 0; i < n; i++)
+		{
+			e = null;
+			if (where == "inventory")
+				e = InInventory(p, type);
+			if (!e)
+				e = OnGround(p, type, i, n);
+			if (!e)
+				return "the game couldn't create " + type;
+			FillUp(e);
+		}
+		return "";
+	}
+
+	// OnGround puts one of type on the ground in front of them, the i-th of
+	// a row of n across, 0.4 m apart.
+	static EntityAI OnGround(PlayerBase p, string type, int i, int n)
+	{
 		vector dir = p.GetDirection();
 		dir[1] = 0;
 		dir.Normalize();
 		vector side = Vector(dir[2], 0, -dir[0]);
-		for (int i = 0; i < n; i++)
+		float off = (i - (n - 1) / 2.0) * 0.4;
+		vector at = p.GetPosition() + dir * 1.2 + side * off;
+		at[1] = g_Game.SurfaceY(at[0], at[2]);
+		return EntityAI.Cast(g_Game.CreateObjectEx(type, at, ECE_PLACE_ON_SURFACE));
+	}
+
+	// InInventory puts one of type somewhere free in their clothing and
+	// containers, the way GameInventory.CreateInInventory does, but never
+	// into a gun's magazine well (a magazine made there skips the gun's
+	// loading); null when there is no room.
+	static EntityAI InInventory(PlayerBase p, string type)
+	{
+		GameInventory inv = p.GetInventory();
+		InventoryLocation loc = new InventoryLocation();
+		bool found = inv.FindFirstFreeLocationForNewEntity(type, FindInventoryLocationType.CARGO | FindInventoryLocationType.ATTACHMENT, loc);
+		if (found && Weapon_Base.Cast(loc.GetParent()))
+			found = inv.FindFirstFreeLocationForNewEntity(type, FindInventoryLocationType.CARGO, loc);
+		if (!found)
+			return null;
+		if (loc.GetType() == InventoryLocationType.ATTACHMENT)
+			return loc.GetParent().GetInventory().CreateAttachmentEx(type, loc.GetSlot());
+		if (loc.GetType() == InventoryLocationType.CARGO)
+			return loc.GetParent().GetInventory().CreateEntityInCargoEx(type, loc.GetIdx(), loc.GetRow(), loc.GetCol(), loc.GetFlip());
+		return null;
+	}
+
+	// FillUp gives a magazine all its rounds and a stack its full quantity.
+	static void FillUp(EntityAI e)
+	{
+		Magazine mag = Magazine.Cast(e);
+		ItemBase ib = ItemBase.Cast(e);
+		if (mag)
+			mag.ServerSetAmmoMax();
+		else if (ib && ib.HasQuantity())
+			ib.SetQuantityMax();
+	}
+
+	// SetCondition sets the condition of the item with that id (ReCON_Item.id)
+	// that they carry: in their hands, worn, or inside either. level is
+	// 0 pristine, 1 worn, 2 damaged, 3 badly damaged, 4 ruined, set to the
+	// health DayZ itself gives an item it steps down to that level.
+	static string SetCondition(PlayerBase p, int id, int level)
+	{
+		// Everything on them, then everything in their hands (in a list of
+		// its own: EnumerateInventory fills the list it is given afresh).
+		array<EntityAI> items = new array<EntityAI>();
+		p.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
+		EntityAI hands = p.GetItemInHands();
+		if (hands)
 		{
-			// A row across in front of them, 0.4 m apart.
-			float off = (i - (n - 1) / 2.0) * 0.4;
-			vector at = pos + dir * 1.2 + side * off;
+			array<EntityAI> held = new array<EntityAI>();
+			hands.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, held);
+			items.InsertAll(held);
+		}
+		EntityAI item;
+		foreach (EntityAI e : items)
+		{
+			if (e && e != p && e.GetID() == id)
+			{
+				item = e;
+				break;
+			}
+		}
+		if (!item)
+			return "they aren't carrying that item any more";
+		float frac;
+		switch (level)
+		{
+			case 0:
+				frac = GameConstants.DAMAGE_PRISTINE_VALUE;
+				break;
+			case 1:
+				frac = GameConstants.DAMAGE_WORN_VALUE;
+				break;
+			case 2:
+				frac = GameConstants.DAMAGE_DAMAGED_VALUE;
+				break;
+			case 3:
+				frac = GameConstants.DAMAGE_BADLY_DAMAGED_VALUE;
+				break;
+			case 4:
+				frac = GameConstants.DAMAGE_RUINED_VALUE;
+				break;
+			default:
+				return "no such condition";
+		}
+		item.SetHealth("", "", item.GetMaxHealth("", "") * frac);
+		return "";
+	}
+
+	// SpawnVehicle puts one of type 8 m in front of them, facing the way
+	// they face, whole the way DayZ's own developer spawn and COT make one:
+	// its OnDebugSpawn fits its wheels, doors and engine parts, then a car's
+	// fuel, oil, brake fluid and coolant are filled. A boat keeps their
+	// height (on the water where they stand at its edge); anything else
+	// goes on the ground.
+	static string SpawnVehicle(PlayerBase p, string type)
+	{
+		vector dir = p.GetDirection();
+		dir[1] = 0;
+		dir.Normalize();
+		vector at = p.GetPosition() + dir * 8;
+		int flags = ECE_PLACE_ON_SURFACE;
+		if (g_Game.IsKindOf(type, "Boat"))
+			flags = ECE_KEEPHEIGHT;
+		else
 			at[1] = g_Game.SurfaceY(at[0], at[2]);
-			EntityAI e = EntityAI.Cast(g_Game.CreateObjectEx(type, at, ECE_PLACE_ON_SURFACE));
-			if (!e)
-				return "the game couldn't create " + type;
-			Magazine mag = Magazine.Cast(e);
-			ItemBase ib = ItemBase.Cast(e);
-			if (mag)
-				mag.ServerSetAmmoMax();
-			else if (ib && ib.HasQuantity())
-				ib.SetQuantityMax();
+		EntityAI v = EntityAI.Cast(g_Game.CreateObjectEx(type, at, flags));
+		if (!v)
+			return "the game couldn't create " + type;
+		v.SetDirection(dir);
+		v.OnDebugSpawn();
+		// Every fluid to the brim, as COT does: a modded car's OnDebugSpawn
+		// may fill none, and vanilla's leaves out brake fluid.
+		Car car = Car.Cast(v);
+		if (car)
+		{
+			TopUp(car, CarFluid.FUEL);
+			TopUp(car, CarFluid.OIL);
+			TopUp(car, CarFluid.BRAKE);
+			TopUp(car, CarFluid.COOLANT);
 		}
 		return "";
+	}
+
+	// TopUp fills a car's fluid to its capacity.
+	static void TopUp(Car car, CarFluid fluid)
+	{
+		float cap = car.GetFluidCapacity(fluid);
+		float frac = car.GetFluidFraction(fluid);
+		if (cap > 0 && frac < 1)
+			car.Fill(fluid, cap * (1 - frac));
 	}
 
 	// Teleport moves them (and their vehicle) to x, z; y 0 or below means

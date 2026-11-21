@@ -9,7 +9,7 @@ const int RECON_PROTOCOL = 1;
 class ReCON_Sync
 {
 	int v = RECON_PROTOCOL;
-	string mod = "0.0.1d";
+	string mod = "0.0.1h";
 	string key;      // the RCON password
 	string world;    // "chernarusplus"
 	int year;        // the in-game date and time
@@ -127,6 +127,11 @@ class ReCON_Event
 	string killer;     // SteamID64 ("" for the environment, an AI or animal)
 	string killerName;
 	string weapon;     // class name
+	// What killed them: player, suicide, admin, vehicle, infected, animal,
+	// explosion, trap, fall, fire, drowned, bleeding, dehydration,
+	// starvation, cold, illness, or "" when it can't tell.
+	string cause;
+	int agents;        // the illnesses they had (eAgents bits)
 	float distance;
 	float x;           // where the victim died
 	float y;
@@ -137,7 +142,8 @@ class ReCON_Event
 class ReCON_Command
 {
 	int id;
-	// On a player: heal | kill | teleport | teleportTo | set | message.
+	// On a player: heal | dry | kill | teleport | teleportTo | set | message | spawn |
+	// condition (text: the item's id, value: 0 pristine to 4 ruined).
 	// On the world: weather | weatherMode | storm | rainThresholds | date | freezeTime.
 	string action;
 	string steamId;  // the player it acts on
@@ -145,7 +151,7 @@ class ReCON_Command
 	float x;         // teleport: where (y 0 = ground level)
 	float y;
 	float z;
-	string stat;     // set: health | blood | shock | water | energy
+	string stat;     // set: health | blood | shock | water | energy; spawn: where (ground | inventory | hands)
 	float value;
 	string text;     // message
 	string title;

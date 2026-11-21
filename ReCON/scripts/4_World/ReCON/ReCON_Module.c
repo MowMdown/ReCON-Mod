@@ -321,11 +321,16 @@ class ReCON_Module : CF_ModuleWorld
 				}
 			}
 		}
-		if (by && !weapon && by.GetItemInHands())
+		e.cause = Cause(victim, killer, by);
+		e.agents = victim.GetAgents();
+		// What they were killed with: never their own body (a death no one
+		// caused passes the victim as the killer), and what is in their
+		// hands only for a player who killed them, or for a suicide.
+		if (by && !weapon && by.GetItemInHands() && (by != victim || e.cause == "suicide"))
 			weapon = by.GetItemInHands();
 		if (weapon)
 			e.weapon = weapon.GetType();
-		else if (killer)
+		else if (killer && killer != victim)
 			e.weapon = killer.GetType();
 		if (by && by != victim && by.GetIdentity())
 		{
@@ -334,14 +339,68 @@ class ReCON_Module : CF_ModuleWorld
 			e.distance = vector.Distance(by.GetPosition(), pos);
 			m_Kills.Set(e.killer, m_Kills.Get(e.killer) + 1);
 		}
-		else if (by == victim)
+		else if (e.cause == "suicide")
 		{
-			e.killer = e.victim; // suicide
+			e.killer = e.victim;
 			e.killerName = e.victimName;
 		}
 		m_Events.Insert(e);
 		while (m_Events.Count() > MAX_QUEUED)
 			m_Events.Remove(0);
+	}
+
+	// Cause is what killed the victim (see ReCON_Event.cause). killer is
+	// what DayZ passed to EEKilled, by the player behind it, if any. With
+	// no one else behind it, it goes by what last hurt them (a fall, a
+	// fire) if that was just now, then by the state they died in, the way
+	// DayZ's own modifiers kill: drowning, blood below the fatal level,
+	// thirst, hunger, cold, illness.
+	string Cause(PlayerBase victim, Object killer, PlayerBase by)
+	{
+		if (victim.m_ReCON_AdminKill)
+			return "admin";
+		if (victim.CommitedSuicide())
+			return "suicide";
+		if (killer && killer.IsTransport())
+			return "vehicle";
+		if (by && by != victim)
+			return "player";
+		if (killer && killer != victim)
+		{
+			EntityAI ent = EntityAI.Cast(killer);
+			if (ent && ent.IsZombie())
+				return "infected";
+			if (ent && ent.IsAnimal())
+				return "animal";
+			if (LandMineTrap.Cast(killer) || ExplosivesBase.Cast(killer) || killer.IsExplosive())
+				return "explosion";
+			if (TrapBase.Cast(killer))
+				return "trap";
+		}
+		if (g_Game.GetTime() - victim.m_ReCON_LastHitAt < 3000)
+		{
+			string ammo = victim.m_ReCON_LastAmmo;
+			if (ammo.Contains("FallDamage"))
+				return "fall";
+			if (ammo == "FireDamage" || ammo == "HeatDamage")
+				return "fire";
+		}
+		if (victim.GetDrowningWaterLevelCheck())
+			return "drowned";
+		if (victim.GetHealth("GlobalHealth", "Blood") < PlayerConstants.BLOOD_THRESHOLD_FATAL)
+			return "bleeding";
+		if (victim.GetStatWater() && victim.GetStatWater().Get() <= PlayerConstants.LOW_WATER_THRESHOLD)
+			return "dehydration";
+		if (victim.GetStatEnergy() && victim.GetStatEnergy().Get() <= PlayerConstants.LOW_ENERGY_THRESHOLD)
+			return "starvation";
+		if (victim.GetStatHeatComfort() && victim.GetStatHeatComfort().Get() < PlayerConstants.ENERGY_LOSS_THRESHOLD_HC_MINUS_HIGH)
+			return "cold";
+		if (victim.GetAgents() != 0)
+			return "illness";
+		BleedingSourcesManagerServer bleeding = victim.GetBleedingManagerServer();
+		if (bleeding && bleeding.GetBleedingSourcesCount() > 0)
+			return "bleeding";
+		return "";
 	}
 };
 

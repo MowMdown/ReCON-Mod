@@ -26,8 +26,9 @@ they're in, and their kills and deaths this session. While a player is open
 on the Live Map, it also sends everything they carry: each slot's item, and
 inside it every attachment and every item in its cargo, with its condition,
 quantity, wetness and temperature. It also runs ReCON's
-actions on them (heal, kill, teleport, set a stat, on-screen messages, spawn
-any item the server has loaded on the ground in front of them) and
+actions on them (heal, dry, kill, teleport, set a stat, set an item's condition, on-screen messages, spawn
+any item the server has loaded on the ground in front of them, or a
+vehicle, whole) and
 on the world (weather, the in-game date and time).
 
 - **Server-side only.** It loads with `-servermod`, so players download
@@ -118,7 +119,7 @@ Each sync is one `POST <url>api/mod/sync` with JSON:
                 "bleeding": 0, "agents": 0, "brokenLegs": 0,
                 "unconscious": false, "restrained": false,
                 "hands": "M4A1", "vehicle": "", "kills": 0, "deaths": 0 }],
-  "events": [{ "type": "kill", "victim": "7656…", "killer": "7656…", "weapon": "M4A1", "distance": 120.5, "…": "…" }],
+  "events": [{ "type": "kill", "victim": "7656…", "killer": "7656…", "weapon": "M4A1", "cause": "player", "agents": 0, "distance": 120.5, "…": "…" }],
   "results": [{ "id": 3, "ok": true, "error": "" }]
 }
 ```
@@ -136,17 +137,31 @@ It also sends `weather`: the overcast, rain, fog, snow, wind speed and
 direction now, where each is heading, the weather mode, and whether time
 is frozen.
 
+A death's `cause` is what killed them: `player`, `suicide` (the suicide
+emote), `admin` (ReCON's Kill), `vehicle`, `infected`, `animal`,
+`explosion`, `trap`, `fall`, `fire`, `drowned`, `bleeding` (blood below
+DayZ's fatal level), `dehydration`, `starvation`, `cold`, `illness`, or
+empty when it can't tell. A death no one caused (DayZ passes the victim as
+the killer) goes by what last hurt them if it was in the last 3 seconds (a
+fall, a fire), then by the state they died in, the way DayZ's modifiers
+kill. `agents` is the illnesses they had (eAgents bits). `weapon` is never
+their own body, and what is in their hands only for a player who killed
+them or for a suicide.
+
 Each command's result comes back in the next sync. Events and results
 that ReCON didn't get, because it was down or refused them, are sent again.
 
 | Action | Fields |
 |---|---|
 | `heal` | Full health, blood, shock, food, water and stamina. Stops bleeding, cures illnesses and their symptoms, mends broken legs and wakes them if knocked out. |
+| `dry` | Their wetness to none, and every item they carry (clothes above all) dry. |
+| `condition` | `text`: the item's `id` (from their inventory), `value`: 0 pristine, 1 worn, 2 damaged, 3 badly damaged, 4 ruined. Only an item they carry. Set to the health DayZ gives an item it steps down to that level. |
 | `kill` | — |
 | `teleport` | `x`, `z`, and `y` (0 = ground level). |
 | `teleportTo` | `target`: the SteamID64 of the player to go to. |
 | `set` | `stat` (`health`, `blood`, `water`, `energy` or `heatBuffer`) and `value`. Shock, stamina and temperature are read only. |
 | `message` | `text`, plus optional `title` and `seconds`. Shown as an in-game notification. |
+| `spawn` | `text` (a class from the item list), `value` (1 to 20) and `stat`, where: `ground` (or empty) in front of them, `inventory` (anywhere free in their clothing and containers; what doesn't fit goes on the ground) or `hands` (one, into empty hands). A vehicle (car, motorbike, boat) is one, 8 m in front of them and facing their way, made whole the way DayZ's developer spawn and COT make one: its `OnDebugSpawn` fits wheels, doors and engine parts, then a car's fuel, oil, brake fluid and coolant are filled. A modded vehicle is in the list too; it comes whole if its mod gives it an `OnDebugSpawn` (most do, for admin tools), otherwise with what DayZ's default fits from its config. |
 
 World actions, modelled on Community Online Tools' weather module:
 

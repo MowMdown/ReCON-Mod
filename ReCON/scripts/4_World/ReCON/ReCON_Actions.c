@@ -5,6 +5,13 @@ class ReCON_Actions
 	{
 		ReCON_Result r = new ReCON_Result();
 		r.id = c.id;
+		if (c.action == "deleteVehicle")
+		{
+			r.error = ReCON_Vehicles.Delete(c.text);
+			r.ok = r.error == "";
+			ReCON_Log.Info(c.action + " " + c.text + ": " + ResultText(r));
+			return r;
+		}
 		if (ReCON_WorldControl.IsWorldAction(c.action))
 		{
 			r.error = ReCON_WorldControl.Run(c);

@@ -133,6 +133,19 @@ ReCON answers with:
                  "text": "", "title": "", "seconds": 0 }] }
 ```
 
+Every 5 seconds a sync also has `vehiclesSent: true` and `vehicles`: every
+car, motorbike and boat on the server (`id`, `type`, `name`, `x`, `z`,
+`heading`, `health`, `fuel`, `crew`, `engine`). For each id in the reply's
+`watchVehicles` (ReCON asks once, when a vehicle is clicked on the Live
+Map), the next sync's `vehicleDetails` has that vehicle's damage zones
+(`name`, `health`) and its parts and cargo (`items`, as in an inventory).
+`deleteVehicle` (`text`: its id) deletes one, not while anyone is in it.
+With the vehicles come `worldEvents`: helicopter crashes (`CrashBase`) and
+areas (`EffectArea`: toxic zones), each with `id`, `type`, `kind` (crash,
+gas or area), `x`, `z` and `radius`. When the reply has `wantPlaces` (once
+a connection), the next sync has `placesSent: true` and `places`: the
+map's place names from `CfgWorlds <world> Names` (`name`, `type`, `x`, `z`).
+
 It also sends `weather`: the overcast, rain, fog, snow, wind speed and
 direction now, where each is heading, the weather mode, and whether time
 is frozen.

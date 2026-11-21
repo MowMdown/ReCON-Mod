@@ -20,6 +20,15 @@ class ReCON_Inventory
 		Attachments(p, list, budget);
 	}
 
+	// ReadEntity reads what is attached to e and in its cargo, all the way
+	// down (a vehicle's parts and trunk).
+	static void ReadEntity(EntityAI e, array<ref ReCON_Item> list)
+	{
+		int budget = MAX_ITEMS;
+		Attachments(e, list, budget);
+		Cargo(e, list, budget);
+	}
+
 	protected static void Attachments(EntityAI parent, array<ref ReCON_Item> list, inout int budget)
 	{
 		GameInventory inv = parent.GetInventory();

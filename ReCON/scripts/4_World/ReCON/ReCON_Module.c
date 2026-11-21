@@ -17,6 +17,13 @@ class ReCON_Module : CF_ModuleWorld
 	protected float m_SinceStart;   // seconds
 	protected float m_InFlightFor;  // seconds
 	protected int m_IntervalMs;
+	// When the vehicles were last sent (m_SinceStart), and how often.
+	protected float m_VehiclesAt = -1000;
+	// The vehicles ReCON wants to see inside (by id).
+	protected ref array<int> m_WatchVehicles = new array<int>();
+	// ReCON wants the map's place names in the next sync.
+	protected bool m_WantPlaces;
+	static const float VEHICLES_EVERY = 5;
 	protected bool m_LastFailed;
 	protected string m_LastWhy; // the last failure logged, so a new reason is logged too
 
@@ -167,6 +174,27 @@ class ReCON_Module : CF_ModuleWorld
 		sync.events = m_SentEvents;
 		sync.results = m_SentResults;
 
+		// The vehicles every VEHICLES_EVERY seconds.
+		if (m_SinceStart - m_VehiclesAt >= VEHICLES_EVERY)
+		{
+			m_VehiclesAt = m_SinceStart;
+			sync.vehiclesSent = true;
+			ReCON_Vehicles.Read(sync.vehicles);
+			ReCON_WorldEvents.Read(sync.worldEvents);
+		}
+		if (m_WantPlaces)
+		{
+			m_WantPlaces = false;
+			sync.placesSent = true;
+			ReCON_Places.Read(sync.places);
+		}
+		foreach (int vid : m_WatchVehicles)
+		{
+			ReCON_VehicleDetail vd = ReCON_Vehicles.Detail(vid);
+			if (vd)
+				sync.vehicleDetails.Insert(vd);
+		}
+
 		sync.catalogTotal = m_Catalog.Count();
 		if (m_CatalogNext > 0)
 		{
@@ -220,6 +248,13 @@ class ReCON_Module : CF_ModuleWorld
 		{
 			foreach (string w : reply.watch)
 				m_Watch.Insert(w);
+		}
+		m_WantPlaces = reply.wantPlaces;
+		m_WatchVehicles.Clear();
+		if (reply.watchVehicles)
+		{
+			foreach (int wv : reply.watchVehicles)
+				m_WatchVehicles.Insert(wv);
 		}
 		if (reply.commands)
 		{

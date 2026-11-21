@@ -9,7 +9,7 @@ const int RECON_PROTOCOL = 1;
 class ReCON_Sync
 {
 	int v = RECON_PROTOCOL;
-	string mod = "0.0.1h";
+	string mod = "0.0.1i";
 	string key;      // the RCON password
 	string world;    // "chernarusplus"
 	int year;        // the in-game date and time
@@ -27,6 +27,63 @@ class ReCON_Sync
 	int catalogTotal;
 	int catalogAt;
 	ref array<ref ReCON_CatalogItem> catalog = new array<ref ReCON_CatalogItem>();
+	// Every vehicle on the server, sent every few seconds (vehiclesSent
+	// says this sync has them).
+	bool vehiclesSent;
+	ref array<ref ReCON_Vehicle> vehicles = new array<ref ReCON_Vehicle>();
+	// The map's dynamic events (helicopter crashes, toxic zones), with the
+	// vehicles.
+	ref array<ref ReCON_WorldEvent> worldEvents = new array<ref ReCON_WorldEvent>();
+	// The map's place names, when the reply asked for them (wantPlaces).
+	bool placesSent;
+	ref array<ref ReCON_Place> places = new array<ref ReCON_Place>();
+	// The vehicles ReCON asked to see inside (the reply's watchVehicles).
+	ref array<ref ReCON_VehicleDetail> vehicleDetails = new array<ref ReCON_VehicleDetail>();
+};
+
+class ReCON_WorldEvent
+{
+	int id;
+	string type;     // class name
+	string kind;     // crash | gas | area
+	float x;
+	float z;
+	float radius;    // an area's, in metres (0 for a crash)
+};
+
+class ReCON_Place
+{
+	string name;
+	string type;     // Capital, City, Village, Local, Marine, Hill, ViewPoint, Camp, Ruin, RailroadStation, LocalOffice...
+	float x;
+	float z;
+};
+
+class ReCON_VehicleDetail
+{
+	int id;
+	ref array<ref ReCON_Zone> zones = new array<ref ReCON_Zone>(); // its damage zones: engine, fuel tank, body...
+	ref array<ref ReCON_Item> items = new array<ref ReCON_Item>(); // its parts (attachments) and cargo
+};
+
+class ReCON_Zone
+{
+	string name;
+	float health;    // 0-1
+};
+
+class ReCON_Vehicle
+{
+	int id;          // its object id (deleteVehicle's text)
+	string type;     // class name
+	string name;     // display name
+	float x;
+	float z;
+	float heading;   // degrees, 0 = north
+	float health;    // 0-1
+	float fuel;      // 0-1, -1 when it isn't a car
+	int crew;        // how many are in it
+	bool engine;     // the engine is running
 };
 
 class ReCON_CatalogItem
@@ -142,6 +199,7 @@ class ReCON_Event
 class ReCON_Command
 {
 	int id;
+	// On the server: deleteVehicle (text: its id).
 	// On a player: heal | dry | kill | teleport | teleportTo | set | message | spawn |
 	// condition (text: the item's id, value: 0 pristine to 4 ruined).
 	// On the world: weather | weatherMode | storm | rainThresholds | date | freezeTime.
@@ -190,6 +248,8 @@ class ReCON_Reply
 	string error;
 	int interval;    // ms; 0 keeps the configured one
 	ref array<string> watch = new array<string>(); // SteamID64s to send the inventory of
+	ref array<int> watchVehicles = new array<int>(); // vehicle ids to send the parts and cargo of
+	bool wantPlaces; // send the map's place names
 	int catalogNext; // 1 + the first catalog entry ReCON wants next; 0 none
 	ref array<ref ReCON_Command> commands = new array<ref ReCON_Command>();
 };

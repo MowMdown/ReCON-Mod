@@ -30,6 +30,21 @@ class ReCON_Predators
 			s_All.Remove(i);
 	}
 
+	// Delete removes the predator with that id (ReCON_Predator.id).
+	static string Delete(string idText)
+	{
+		int id = idText.ToInt();
+		foreach (EntityAI a : s_All)
+		{
+			if (a && a.GetID() == id)
+			{
+				g_Game.ObjectDelete(a);
+				return "";
+			}
+		}
+		return "that animal isn't on the server any more";
+	}
+
 	static void Read(array<ref ReCON_Predator> list)
 	{
 		foreach (EntityAI a : s_All)
@@ -47,6 +62,18 @@ class ReCON_Predators
 			p.heading = Math.Atan2(dir[0], dir[2]) * Math.RAD2DEG;
 			if (p.heading < 0)
 				p.heading += 360;
+			p.health = a.GetHealth01("", "");
+			DayZAnimal da = DayZAnimal.Cast(a);
+			if (da)
+			{
+				DayZAnimalInputController ic = da.GetInputController();
+				if (ic)
+				{
+					p.behaviour = ic.GetBehaviourSlot();
+					p.activity = ic.GetBehaviourAction();
+					p.attacking = ic.IsAttack();
+				}
+			}
 			list.Insert(p);
 		}
 	}

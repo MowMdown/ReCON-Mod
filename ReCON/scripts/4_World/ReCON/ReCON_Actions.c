@@ -29,6 +29,13 @@ class ReCON_Actions
 			ReCON_Log.Info(c.action + " " + c.text + ": " + ResultText(r));
 			return r;
 		}
+		if (c.action == "deleteAnimal")
+		{
+			r.error = ReCON_Predators.Delete(c.text);
+			r.ok = r.error == "";
+			ReCON_Log.Info(c.action + " " + c.text + ": " + ResultText(r));
+			return r;
+		}
 		if (ReCON_WorldControl.IsWorldAction(c.action))
 		{
 			r.error = ReCON_WorldControl.Run(c);
@@ -94,7 +101,7 @@ class ReCON_Actions
 				}
 				break;
 			case "restore":
-				err = ReCON_Restore.Run(p, c.items, c.text);
+				err = ReCON_Restore.Run(p, c.items, c.text, c.condition, c.clear);
 				break;
 			case "condition":
 				err = SetCondition(p, c.text.ToInt(), (int)c.value);

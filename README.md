@@ -133,7 +133,7 @@ ReCON answers with:
                  "text": "", "title": "", "seconds": 0 }] }
 ```
 
-Every 5 seconds a sync also has `vehiclesSent: true` and `vehicles`: every
+Every 10 seconds (5 before 1.0.3) a sync also has `vehiclesSent: true` and `vehicles`: every
 car, motorbike and boat on the server (`id`, `type`, `name`, `x`, `z`,
 `heading`, `health`, `fuel`, `crew`, `engine`). For each id in the reply's
 `watchVehicles` (ReCON asks once, when a vehicle is clicked on the Live
@@ -147,6 +147,14 @@ From recon-mod 1.0.1:
 - **`removeEntity`** (`text`: persistent ID, `stat`: class): removes that vehicle or placed object only if both match (a vehicle's crew is put out first); `it's already gone` when there's no such thing.
 - **A death's inventory**: a player's kill event carries `inventory`, what they had as they died.
 - **`restore`** (on a player; `items`: the items, in the inventory's shape; from 1.0.2, `text` as JSON is still read when there is no `items`): makes them with their attachments and contents, condition, quantity (rounds for a magazine) and wetness: into a free slot, else their inventory, else the ground at their feet. Classes the server doesn't have are skipped and named in the result. `spawnAt` (`text`: a class from the item list, `value`: 1 to 20, `x`, `z`) spawns at a spot on the map: items in a row on the ground, a vehicle whole, facing north (a boat on the water at sea level if the spot is sea), animals in a row 1.5 m apart (recon-mod 0.0.1k on).
+From recon-mod 1.0.3:
+
+- **Occupied vehicles** (`crewVehicles`, every sync, with `crewSent`): the vehicles with someone in them, plus each one once more on the sync after its last player got out. Each player also has `vehicleId`, `seat` (crew position, -1 when not in a vehicle) and `driver`.
+- **Predators** also carry `health` (0-1), `behaviour` (the AI's `DayZAnimalBehaviourSlot`: calm, hunting...), `activity` (its `DayZAnimalBehaviourAction`: grazing, charging...) and `attacking`. **`deleteAnimal`** (`text`: its id) removes one.
+- **`restore`** takes `condition` (`worn`: 65% health, `pristine`: 100%, empty: as saved) and `clear` (empty the player's inventory first; the items are made a second later).
+- **Mission files**: for each name in the reply's `wantMission` (such as `cfgeventspawns.xml` or `db/events.xml`, inside the mission folder only), the next sync's `missionFiles` has `name`, `found` and the file's `text`.
+- **Event spots**: a reply with `spotsSet` gives the places events spawn (`spotChecks`: `id`, `x`, `z`, `radius`, `types`). Each sync checks the next 40 and sends `spots` (`id`, `on`: an object of one of the types is within the radius), and `spotsHeld`, how many the mod holds.
+
 With the vehicles come `worldEvents`: helicopter crashes (`CrashBase`) and
 areas (`EffectArea`: toxic zones), each with `id`, `type`, `kind` (crash,
 gas or area), `x`, `z` and `radius`. Every sync has `predators` (recon-mod

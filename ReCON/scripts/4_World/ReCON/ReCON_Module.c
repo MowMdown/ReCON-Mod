@@ -27,7 +27,11 @@ class ReCON_Module : CF_ModuleWorld
 	static const float PLACED_EVERY = 30;
 	// ReCON wants the map's place names in the next sync.
 	protected bool m_WantPlaces;
-	static const float VEHICLES_EVERY = 5;
+	static const float VEHICLES_EVERY = 10;
+	// The vehicles that had someone in them on the last sync (by id).
+	protected ref array<int> m_Crewed = new array<int>();
+	// Mission files ReCON asked for, sent in the next sync.
+	protected ref array<string> m_WantMission = new array<string>();
 	protected bool m_LastFailed;
 	protected string m_LastWhy; // the last failure logged, so a new reason is logged too
 
@@ -189,6 +193,13 @@ class ReCON_Module : CF_ModuleWorld
 		// The predators every sync: they move.
 		sync.predatorsSent = true;
 		ReCON_Predators.Read(sync.predators);
+		sync.crewSent = true;
+		ReCON_Vehicles.ReadCrewed(sync.crewVehicles, m_Crewed);
+		foreach (string mf : m_WantMission)
+			sync.missionFiles.Insert(ReCON_MissionFiles.Read(mf));
+		m_WantMission.Clear();
+		sync.spotsHeld = ReCON_EventSpots.Count();
+		ReCON_EventSpots.Check(sync.spots);
 		if (m_WantPlaces)
 		{
 			m_WantPlaces = false;
@@ -269,6 +280,14 @@ class ReCON_Module : CF_ModuleWorld
 				m_Watch.Insert(w);
 		}
 		m_WantPlaces = reply.wantPlaces;
+		m_WantMission.Clear();
+		if (reply.wantMission)
+		{
+			foreach (string wm : reply.wantMission)
+				m_WantMission.Insert(wm);
+		}
+		if (reply.spotsSet)
+			ReCON_EventSpots.Set(reply.spotChecks);
 		m_WatchVehicles.Clear();
 		if (reply.watchVehicles)
 		{

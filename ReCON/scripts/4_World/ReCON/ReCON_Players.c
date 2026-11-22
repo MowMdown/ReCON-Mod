@@ -62,6 +62,10 @@ class ReCON_Players
 		{
 			s.vehicle = hcv.GetTransport().GetType();
 			s.vehicleName = hcv.GetTransport().GetDisplayName();
+			Transport tr = hcv.GetTransport();
+			s.vehicleId = tr.GetID();
+			s.seat = tr.CrewMemberIndex(p);
+			s.driver = tr.CrewDriver() == p;
 		}
 
 		s.kills = kills.Get(s.steamId);

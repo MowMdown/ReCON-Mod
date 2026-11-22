@@ -22,30 +22,56 @@ class ReCON_Vehicles
 	{
 		foreach (EntityAI v : s_All)
 		{
+			if (v)
+				list.Insert(Make(v));
+		}
+	}
+
+	// ReadCrewed adds the vehicles with someone in them, and the ones whose
+	// ids are in last (they had someone in them on the last sync, so where
+	// they were left gets sent once); last becomes this sync's crewed ones.
+	static void ReadCrewed(array<ref ReCON_Vehicle> list, array<int> last)
+	{
+		array<int> now = new array<int>();
+		foreach (EntityAI v : s_All)
+		{
 			if (!v)
 				continue;
-			ReCON_Vehicle it = new ReCON_Vehicle();
-			it.id = v.GetID();
-			it.type = v.GetType();
-			it.name = v.GetDisplayName();
-			vector pos = v.GetPosition();
-			it.x = pos[0];
-			it.z = pos[2];
-			vector dir = v.GetDirection();
-			it.heading = Math.Atan2(dir[0], dir[2]) * Math.RAD2DEG;
-			if (it.heading < 0)
-				it.heading += 360;
-			it.health = v.GetHealth01("", "");
-			it.crew = Crew(v);
-			it.fuel = -1;
-			Car car = Car.Cast(v);
-			if (car)
-			{
-				it.fuel = car.GetFluidFraction(CarFluid.FUEL);
-				it.engine = car.EngineIsOn();
-			}
-			list.Insert(it);
+			int id = v.GetID();
+			bool crewed = Crew(v) > 0;
+			if (crewed)
+				now.Insert(id);
+			if (crewed || last.Find(id) >= 0)
+				list.Insert(Make(v));
 		}
+		last.Clear();
+		foreach (int n : now)
+			last.Insert(n);
+	}
+
+	static ReCON_Vehicle Make(EntityAI v)
+	{
+		ReCON_Vehicle it = new ReCON_Vehicle();
+		it.id = v.GetID();
+		it.type = v.GetType();
+		it.name = v.GetDisplayName();
+		vector pos = v.GetPosition();
+		it.x = pos[0];
+		it.z = pos[2];
+		vector dir = v.GetDirection();
+		it.heading = Math.Atan2(dir[0], dir[2]) * Math.RAD2DEG;
+		if (it.heading < 0)
+			it.heading += 360;
+		it.health = v.GetHealth01("", "");
+		it.crew = Crew(v);
+		it.fuel = -1;
+		Car car = Car.Cast(v);
+		if (car)
+		{
+			it.fuel = car.GetFluidFraction(CarFluid.FUEL);
+			it.engine = car.EngineIsOn();
+		}
+		return it;
 	}
 
 	// Detail is what is in the vehicle with that id: its damage zones' health,

@@ -9,7 +9,7 @@ const int RECON_PROTOCOL = 1;
 class ReCON_Sync
 {
 	int v = RECON_PROTOCOL;
-	string mod = "1.0.2";
+	string mod = "1.0.3";
 	string key;      // the RCON password
 	string world;    // "chernarusplus"
 	int year;        // the in-game date and time
@@ -48,6 +48,41 @@ class ReCON_Sync
 	bool placedSent;
 	ref array<ref ReCON_Placed> placed = new array<ref ReCON_Placed>();
 	ref array<ref ReCON_PlacedDetail> placedDetails = new array<ref ReCON_PlacedDetail>();
+	// The vehicles with someone in them, every sync, plus each one once
+	// more on the sync after its last player got out (crewSent: this mod
+	// sends them; 1.0.3 on).
+	bool crewSent;
+	ref array<ref ReCON_Vehicle> crewVehicles = new array<ref ReCON_Vehicle>();
+	// Mission files ReCON asked for (the reply's wantMission), as text.
+	ref array<ref ReCON_MissionFile> missionFiles = new array<ref ReCON_MissionFile>();
+	// How many event spots the mod holds to check (the reply's spotChecks),
+	// and the ones checked this sync: whether the event is there.
+	int spotsHeld = -1;
+	ref array<ref ReCON_SpotState> spots = new array<ref ReCON_SpotState>();
+};
+
+class ReCON_MissionFile
+{
+	string name;     // as asked: "cfgeventspawns.xml", "db/events.xml"
+	bool found;
+	string text;
+};
+
+// ReCON_SpotCheck is one place an event can spawn: it is up when an object
+// of one of the types is within radius of x, z.
+class ReCON_SpotCheck
+{
+	int id;
+	float x;
+	float z;
+	float radius;
+	ref array<string> types = new array<string>();
+};
+
+class ReCON_SpotState
+{
+	int id;
+	bool on;
 };
 
 class ReCON_Placed
@@ -80,6 +115,13 @@ class ReCON_Predator
 	float x;
 	float z;
 	float heading;   // degrees, 0 = north, clockwise
+	// 1.0.3 on: health 0-1, and what its AI is doing: behaviour is
+	// DayZAnimalBehaviourSlot (hunting, calm...), activity
+	// DayZAnimalBehaviourAction (charging, grazing...); -1 unknown.
+	float health = -1;
+	int behaviour = -1;
+	int activity = -1;
+	bool attacking;
 };
 
 class ReCON_WorldEvent
@@ -166,6 +208,9 @@ class ReCON_PlayerState
 	string vehicle;  // class name of the vehicle they are in
 	string handsName;   // their names as the game shows them ("Wood Axe")
 	string vehicleName;
+	int vehicleId;   // the vehicle's id (ReCON_Vehicle.id), 1.0.3 on
+	int seat = -1;   // their crew position in it; -1 not in one
+	bool driver;     // they are driving it
 	int kills;       // this session, as the mod saw them
 	int deaths;
 	// Everything they carry, only while ReCON is watching them (the reply's
@@ -242,7 +287,7 @@ class ReCON_Event
 class ReCON_Command
 {
 	int id;
-	// On the server: deleteVehicle (text: its id), spawnAt (text: the class,
+	// On the server: deleteVehicle, deleteAnimal (text: its id), spawnAt (text: the class,
 	// value: how many, x, z: where; a vehicle is one, whole).
 	// On a player: heal | dry | kill | teleport | teleportTo | set | message | spawn |
 	// condition (text: the item's id, value: 0 pristine to 4 ruined).
@@ -259,6 +304,8 @@ class ReCON_Command
 	string replace;     // spawn: a vehicle (persistent ID) to delete once the new one exists, crew put out first
 	string replaceType; // ...and its class: deleted only if both match
 	ref array<ref ReCON_Item> items; // restore: the items to give back (in the inventory's shape)
+	string condition;   // restore: worn | pristine | "" (as saved)
+	bool clear;         // restore: empty their inventory first
 	string title;
 	float seconds;
 	// weather: stat is overcast | rain | fog | snow | windSpeed | windDir (degrees),
@@ -300,5 +347,8 @@ class ReCON_Reply
 	ref array<int> watchPlaced = new array<int>();  // placed object ids to send the contents of
 	bool wantPlaces; // send the map's place names
 	int catalogNext; // 1 + the first catalog entry ReCON wants next; 0 none
+	ref array<string> wantMission = new array<string>(); // mission files to send, by name
+	bool spotsSet;   // spotChecks is the new list of spots to check (an empty list clears it)
+	ref array<ref ReCON_SpotCheck> spotChecks = new array<ref ReCON_SpotCheck>();
 	ref array<ref ReCON_Command> commands = new array<ref ReCON_Command>();
 };

@@ -5,13 +5,29 @@
 // inventory, else on the ground at their feet; attachments onto their parent
 // and contents into their container. A class the server doesn't have is
 // skipped and named in the result.
+// ReCON_RestoreLater is a restore waiting for the player's inventory to be
+// emptied (clear): the deleted items still hold their slots until the
+// game has removed them.
+class ReCON_RestoreLater
+{
+	PlayerBase player;
+	ref array<ref ReCON_Item> items;
+	float health;
+};
+
 class ReCON_Restore
 {
+	protected static ref array<ref ReCON_RestoreLater> s_Later = new array<ref ReCON_RestoreLater>();
 	protected static ref TStringArray s_Skipped;
+	// The health every item gets, as a fraction of its most (-1: as saved).
+	protected static float s_Health = -1;
 
 	// Run gives back items (ReCON 3.0.2 on sends them as a list); json is the
 	// older form, the same list as JSON text, still read when there's no list.
-	static string Run(PlayerBase p, array<ref ReCON_Item> given, string json)
+	// condition: "worn" (65%) or "pristine" (100%) sets every item's
+	// condition; "" keeps the one saved. clear empties their inventory first
+	// (what they wear, carry and hold).
+	static string Run(PlayerBase p, array<ref ReCON_Item> given, string json, string condition, bool clear)
 	{
 		array<ref ReCON_Item> items = given;
 		if (!items || items.Count() == 0)
@@ -22,12 +38,53 @@ class ReCON_Restore
 				return "couldn't read the items: " + err;
 		}
 		s_Skipped = new TStringArray();
-		int n = items.Count();
-		for (int i = 0; i < n; i++)
-			Make(p, null, items[i], true, i, n);
+		s_Health = -1;
+		if (condition == "worn")
+			s_Health = 0.65;
+		else if (condition == "pristine")
+			s_Health = 1;
+		if (clear)
+		{
+			ReCON_RestoreLater later = new ReCON_RestoreLater();
+			later.player = p;
+			later.items = items;
+			later.health = s_Health;
+			s_Later.Insert(later);
+			p.ClearInventory();
+			g_Game.GetCallQueue(CALL_CATEGORY_GAMEPLAY).CallLater(ReCON_Restore.RunLater, 1000, false);
+			return "";
+		}
+		MakeAll(p, items);
 		if (s_Skipped.Count() > 0)
 			return "not made (not on this server): " + JoinSkipped();
 		return "";
+	}
+
+	protected static void MakeAll(PlayerBase p, array<ref ReCON_Item> items)
+	{
+		int n = items.Count();
+		for (int i = 0; i < n; i++)
+			Make(p, null, items[i], true, i, n);
+	}
+
+	// RunLater makes the items of the restores that emptied an inventory
+	// first (a second ago). A player who died or left meanwhile gets nothing.
+	static void RunLater()
+	{
+		array<ref ReCON_RestoreLater> due = new array<ref ReCON_RestoreLater>();
+		foreach (ReCON_RestoreLater l : s_Later)
+			due.Insert(l);
+		s_Later.Clear();
+		foreach (ReCON_RestoreLater d : due)
+		{
+			if (!d.player || !d.player.IsAlive())
+				continue;
+			s_Skipped = new TStringArray();
+			s_Health = d.health;
+			MakeAll(d.player, d.items);
+			if (s_Skipped.Count() > 0)
+				ReCON_Log.Info("restore: not made (not on this server): " + JoinSkipped());
+		}
 	}
 
 	protected static string JoinSkipped()
@@ -88,7 +145,9 @@ class ReCON_Restore
 
 	protected static void Apply(EntityAI e, ReCON_Item it)
 	{
-		if (it.healthMax > 0)
+		if (s_Health >= 0)
+			e.SetHealth("", "", e.GetMaxHealth("", "") * s_Health);
+		else if (it.healthMax > 0)
 			e.SetHealth("", "", it.health);
 		ItemBase ib = ItemBase.Cast(e);
 		if (!ib)

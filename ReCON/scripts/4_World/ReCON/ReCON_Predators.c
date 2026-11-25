@@ -69,8 +69,6 @@ class ReCON_Predators
 				DayZAnimalInputController ic = da.GetInputController();
 				if (ic)
 				{
-					p.behaviour = ic.GetBehaviourSlot();
-					p.activity = ic.GetBehaviourAction();
 					p.attacking = ic.IsAttack();
 				}
 			}

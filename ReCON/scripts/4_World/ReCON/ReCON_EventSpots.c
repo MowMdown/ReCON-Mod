@@ -99,7 +99,7 @@ class ReCON_MissionFiles
 			return result;
 		}
 		string name = request.name;
-		if (name.Contains("..") || name.Contains(":") || name.IndexOf("/") == 0 || name.Contains("\\") || name.Contains("//") || name.IndexOf(".xml") < 0)
+		if (name.Contains("..") || name.Contains(":") || name.IndexOf("/") == 0 || name.Contains("\\") || name.Contains("//") || name.Length() < 4 || name.Substring(name.Length() - 4, 4).ToLower() != ".xml")
 		{
 			result.error = "unsafe mission path (XML files only)";
 			return result;

@@ -80,4 +80,40 @@ class ReCON_MissionFiles
 		}
 		return f;
 	}
+
+	// Write replaces an existing mission XML file only. Requiring the file
+	// to exist prevents this transport API from becoming a directory writer.
+	// Paths are mission-relative and may contain subdirectories (for example db/types.xml).
+	static ReCON_MissionWriteResult Write(ReCON_MissionWrite request)
+	{
+		ReCON_MissionWriteResult result = new ReCON_MissionWriteResult();
+		result.id = request.id;
+		if (!request || request.id <= 0 || request.name == "" || request.text.Length() > 2097152)
+		{
+			result.error = "invalid write request or file exceeds 2 MiB";
+			return result;
+		}
+		string name = request.name;
+		if (name.Contains("..") || name.Contains(":") || name.IndexOf("/") == 0 || name.Contains("\\") || name.IndexOf(".xml") < 0)
+		{
+			result.error = "unsafe mission path (XML files only)";
+			return result;
+		}
+		string filePath = "$mission:" + name;
+		if (!FileExist(filePath))
+		{
+			result.error = "mission file does not exist; writes cannot create files";
+			return result;
+		}
+		FileHandle handle = OpenFile(filePath, FileMode.WRITE);
+		if (!handle)
+		{
+			result.error = "could not open mission file for writing";
+			return result;
+		}
+		FPrint(handle, request.text);
+		CloseFile(handle);
+		result.ok = true;
+		return result;
+	}
 };

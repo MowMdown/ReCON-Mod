@@ -3,3 +3,4 @@
 
 # Map images extracted from game files (not ours to publish)
 /maps/
+.DS_*

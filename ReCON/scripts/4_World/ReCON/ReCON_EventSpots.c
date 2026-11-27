@@ -87,8 +87,13 @@ class ReCON_MissionFiles
 	static ReCON_MissionWriteResult Write(ReCON_MissionWrite request)
 	{
 		ReCON_MissionWriteResult result = new ReCON_MissionWriteResult();
+		if (!request)
+		{
+			result.error = "missing write request";
+			return result;
+		}
 		result.id = request.id;
-		if (!request || request.id <= 0 || request.name == "" || request.text.Length() > 2097152)
+		if (request.id <= 0 || request.name == "" || request.text.Length() > 2097152)
 		{
 			result.error = "invalid write request or file exceeds 2 MiB";
 			return result;

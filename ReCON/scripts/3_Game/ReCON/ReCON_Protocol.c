@@ -365,6 +365,7 @@ class ReCON_Reply
 	int catalogNext; // 1 + the first catalog entry ReCON wants next; 0 none
 	ref array<string> wantMission = new array<string>(); // mission files to send, by name
 	ref array<ref ReCON_MissionWrite> writeMission = new array<ref ReCON_MissionWrite>(); // bounded mission XML writes
+	ref array<ref ReCON_MissionWrite> writeMission = new array<ref ReCON_MissionWrite>(); // bounded mission XML writes
 	bool spotsSet;   // spotChecks is the new list of spots to check (an empty list clears it)
 	ref array<ref ReCON_SpotCheck> spotChecks = new array<ref ReCON_SpotCheck>();
 	ref array<ref ReCON_Command> commands = new array<ref ReCON_Command>();

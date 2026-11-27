@@ -64,7 +64,7 @@ class ReCON_MissionFiles
 		ReCON_MissionFile f = new ReCON_MissionFile();
 		f.name = name;
 		// Only plain names in the mission folder: no going up out of it.
-		if (name.Contains("..") || name.Contains(":") || name.IndexOf("/") == 0 || name.Contains("\\"))
+		if (name.Contains("..") || name.Contains(":") || name.IndexOf("/") == 0 || name.Contains("\\") || name.Contains("//"))
 			return f;
 		FileHandle h = OpenFile("$mission:" + name, FileMode.READ);
 		if (h)
@@ -94,7 +94,7 @@ class ReCON_MissionFiles
 			return result;
 		}
 		string name = request.name;
-		if (name.Contains("..") || name.Contains(":") || name.IndexOf("/") == 0 || name.Contains("\\") || name.IndexOf(".xml") < 0)
+		if (name.Contains("..") || name.Contains(":") || name.IndexOf("/") == 0 || name.Contains("\\") || name.Contains("//") || name.IndexOf(".xml") < 0)
 		{
 			result.error = "unsafe mission path (XML files only)";
 			return result;

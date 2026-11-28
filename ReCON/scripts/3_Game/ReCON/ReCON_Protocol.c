@@ -58,26 +58,10 @@ class ReCON_Sync
 	ref array<ref ReCON_Vehicle> crewVehicles = new array<ref ReCON_Vehicle>();
 	// Mission files ReCON asked for (the reply's wantMission), as text.
 	ref array<ref ReCON_MissionFile> missionFiles = new array<ref ReCON_MissionFile>();
-	// Results for mission-file writes requested by ReCON.
-	ref array<ref ReCON_MissionWriteResult> missionWriteResults = new array<ref ReCON_MissionWriteResult>();
 	// How many event spots the mod holds to check (the reply's spotChecks),
 	// and the ones checked this sync: whether the event is there.
 	int spotsHeld = -1;
 	ref array<ref ReCON_SpotState> spots = new array<ref ReCON_SpotState>();
-};
-
-class ReCON_MissionWriteResult
-{
-	int id;
-	bool ok;
-	string error;
-};
-
-class ReCON_MissionWrite
-{
-	int id;
-	string name;
-	string text;
 };
 
 class ReCON_MissionFile
@@ -380,7 +364,6 @@ class ReCON_Reply
 	bool wantTiers;  // send the loot tier grid from areaflags.map
 	int catalogNext; // 1 + the first catalog entry ReCON wants next; 0 none
 	ref array<string> wantMission = new array<string>(); // mission files to send, by name
-	ref array<ref ReCON_MissionWrite> writeMission = new array<ref ReCON_MissionWrite>(); // bounded mission XML writes
 	bool spotsSet;   // spotChecks is the new list of spots to check (an empty list clears it)
 	ref array<ref ReCON_SpotCheck> spotChecks = new array<ref ReCON_SpotCheck>();
 	ref array<ref ReCON_Command> commands = new array<ref ReCON_Command>();

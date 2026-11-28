@@ -35,10 +35,6 @@ class ReCON_Module : CF_ModuleWorld
 	protected ref array<int> m_Crewed = new array<int>();
 	// Mission files ReCON asked for, sent in the next sync.
 	protected ref array<string> m_WantMission = new array<string>();
-	// Write requests are repeated by ReCON until their result is acknowledged.
-	protected ref array<ref ReCON_MissionWrite> m_WriteMission = new array<ref ReCON_MissionWrite>();
-	protected ref array<ref ReCON_MissionWriteResult> m_MissionWriteResults = new array<ref ReCON_MissionWriteResult>();
-	protected ref array<ref ReCON_MissionWriteResult> m_SentMissionWriteResults = new array<ref ReCON_MissionWriteResult>();
 	protected bool m_LastFailed;
 	protected string m_LastWhy; // the last failure logged, so a new reason is logged too
 
@@ -207,12 +203,6 @@ class ReCON_Module : CF_ModuleWorld
 		foreach (string mf : m_WantMission)
 			sync.missionFiles.Insert(ReCON_MissionFiles.Read(mf));
 		m_WantMission.Clear();
-		foreach (ReCON_MissionWriteResult wr : m_MissionWriteResults)
-		{
-			sync.missionWriteResults.Insert(wr);
-			m_SentMissionWriteResults.Insert(wr);
-		}
-		m_MissionWriteResults.Clear();
 		sync.spotsHeld = ReCON_EventSpots.Count();
 		ReCON_EventSpots.Check(sync.spots);
 		if (m_WantTiers && m_Tiers && m_Tiers.IsDone())
@@ -290,7 +280,6 @@ class ReCON_Module : CF_ModuleWorld
 		m_LastWhy = "";
 		m_SentEvents.Clear();
 		m_SentResults.Clear();
-		m_SentMissionWriteResults.Clear();
 		if (reply.interval >= 250)
 			m_IntervalMs = reply.interval;
 		m_CatalogNext = reply.catalogNext;
@@ -309,15 +298,6 @@ class ReCON_Module : CF_ModuleWorld
 		{
 			foreach (string wm : reply.wantMission)
 				m_WantMission.Insert(wm);
-		}
-		// Execute only the writes explicitly supplied by the authenticated ReCON endpoint.
-		if (reply.writeMission)
-		{
-			foreach (ReCON_MissionWrite write : reply.writeMission)
-			{
-				ReCON_MissionWriteResult result = ReCON_MissionFiles.Write(write);
-				m_MissionWriteResults.Insert(result);
-			}
 		}
 		if (reply.spotsSet)
 			ReCON_EventSpots.Set(reply.spotChecks);
@@ -390,9 +370,6 @@ class ReCON_Module : CF_ModuleWorld
 			m_SentResults.Insert(r);
 		m_Results = m_SentResults;
 		m_SentResults = new array<ref ReCON_Result>();
-		foreach (ReCON_MissionWriteResult wr : m_SentMissionWriteResults)
-			m_MissionWriteResults.Insert(wr);
-		m_SentMissionWriteResults.Clear();
 	}
 
 	// OnKilled is called by PlayerBase.EEKilled on the server.

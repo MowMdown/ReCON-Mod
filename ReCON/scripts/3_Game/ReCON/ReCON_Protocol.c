@@ -38,6 +38,9 @@ class ReCON_Sync
 	// (predatorsSent says this mod sends them).
 	bool predatorsSent;
 	ref array<ref ReCON_Predator> predators = new array<ref ReCON_Predator>();
+	// The loot tier grid from areaflags.map, when the reply asked (wantTiers).
+	bool tiersSent;
+	ref ReCON_TierGrid tiers;
 	// The map's place names, when the reply asked for them (wantPlaces).
 	bool placesSent;
 	ref array<ref ReCON_Place> places = new array<ref ReCON_Place>();
@@ -148,6 +151,18 @@ class ReCON_WorldEvent
 	float x;
 	float z;
 	float radius;    // an area's, in metres (0 for a crash)
+};
+
+// ReCON_TierGrid is the loot tiers read from areaflags.map (ReCON_Tiers):
+// n × n cells from the south-west corner, run-length coded (value, count...),
+// a value being the cell's tier bits; or why it couldn't be read.
+class ReCON_TierGrid
+{
+	float sizeX;
+	float sizeZ;
+	int n;
+	ref array<int> runs = new array<int>();
+	string error;
 };
 
 class ReCON_Place
@@ -362,6 +377,7 @@ class ReCON_Reply
 	ref array<int> watchVehicles = new array<int>(); // vehicle ids to send the parts and cargo of
 	ref array<int> watchPlaced = new array<int>();  // placed object ids to send the contents of
 	bool wantPlaces; // send the map's place names
+	bool wantTiers;  // send the loot tier grid from areaflags.map
 	int catalogNext; // 1 + the first catalog entry ReCON wants next; 0 none
 	ref array<string> wantMission = new array<string>(); // mission files to send, by name
 	ref array<ref ReCON_MissionWrite> writeMission = new array<ref ReCON_MissionWrite>(); // bounded mission XML writes

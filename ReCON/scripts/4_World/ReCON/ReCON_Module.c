@@ -27,6 +27,9 @@ class ReCON_Module : CF_ModuleWorld
 	static const float PLACED_EVERY = 30;
 	// ReCON wants the map's place names in the next sync.
 	protected bool m_WantPlaces;
+	// ReCON wants the loot tiers; they are read a little each frame.
+	protected bool m_WantTiers;
+	protected ref ReCON_Tiers m_Tiers;
 	static const float VEHICLES_EVERY = 10;
 	// The vehicles that had someone in them on the last sync (by id).
 	protected ref array<int> m_Crewed = new array<int>();
@@ -120,6 +123,8 @@ class ReCON_Module : CF_ModuleWorld
 		if (update)
 			dt = update.DeltaTime;
 		m_SinceStart += dt;
+		if (m_Tiers && !m_Tiers.IsDone())
+			m_Tiers.Step();
 		if (m_InFlight)
 		{
 			// The REST API times out on its own; this is a safety net in
@@ -210,6 +215,11 @@ class ReCON_Module : CF_ModuleWorld
 		m_MissionWriteResults.Clear();
 		sync.spotsHeld = ReCON_EventSpots.Count();
 		ReCON_EventSpots.Check(sync.spots);
+		if (m_WantTiers && m_Tiers && m_Tiers.IsDone())
+		{
+			sync.tiersSent = true;
+			sync.tiers = m_Tiers.Result();
+		}
 		if (m_WantPlaces)
 		{
 			m_WantPlaces = false;
@@ -291,6 +301,9 @@ class ReCON_Module : CF_ModuleWorld
 				m_Watch.Insert(w);
 		}
 		m_WantPlaces = reply.wantPlaces;
+		m_WantTiers = reply.wantTiers;
+		if (m_WantTiers && !m_Tiers)
+			m_Tiers = new ReCON_Tiers();
 		m_WantMission.Clear();
 		if (reply.wantMission)
 		{

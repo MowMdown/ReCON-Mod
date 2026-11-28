@@ -1,7 +1,6 @@
 // ReCON_MissionFiles is the mission filesystem bridge used by ReCON.
 // It is deliberately separate from event-spot detection and economy logic.
 // All paths are relative to the active DayZ mission directory.
-// ReCON_MissionFiles reads a mission file ReCON asked for, as text.
 class ReCON_MissionFiles
 {
 	static ReCON_MissionFile Read(string name)
@@ -53,6 +52,16 @@ class ReCON_MissionFiles
 		if (!FileExist(filePath))
 		{
 			result.error = "mission file does not exist; writes cannot create files";
+			return result;
+		}
+		// Keep the last good copy: opening for WRITE empties the file, so a
+		// crash mid-write would otherwise leave broken CE on the next restart.
+		string backupPath = filePath + ".recon-bak";
+		if (FileExist(backupPath))
+			DeleteFile(backupPath);
+		if (!CopyFile(filePath, backupPath))
+		{
+			result.error = "could not back up mission file; not written";
 			return result;
 		}
 		FileHandle handle = OpenFile(filePath, FileMode.WRITE);
